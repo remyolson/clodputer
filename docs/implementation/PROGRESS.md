@@ -424,10 +424,10 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 - [ ] **Release preparation**
   - [ ] Tag v0.1.0 release
-  - [ ] Create GitHub release notes
-  - [ ] Write announcement blog post
+  - [x] Create GitHub release notes
+  - [x] Write announcement blog post
   - [ ] Share on relevant communities
-  - **Notes**: CHANGELOG and release checklist prepared; publishing tasks to be completed at release time.
+  - **Notes**: CHANGELOG, release notes template, and announcement draft ready. Actual tagging and community sharing to be performed at release time.
 
 **✅ Phase 3 Complete When**: Project is documented, tested, and ready for public release.
 
