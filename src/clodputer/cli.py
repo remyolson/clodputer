@@ -27,13 +27,7 @@ from typing import Iterable, Optional
 
 import click
 
-from .config import (
-    ConfigError,
-    ensure_tasks_dir,
-    list_task_names,
-    load_task_by_name,
-    validate_all_tasks,
-)
+from .config import ConfigError, ensure_tasks_dir, load_task_by_name, validate_all_tasks
 from .cron import (
     CRON_LOG_FILE,
     CRON_SECTION_BEGIN,
@@ -52,7 +46,6 @@ from .logger import LOG_FILE, iter_events, tail_events
 from .queue import QueueCorruptionError, QueueManager, lockfile_status
 from .watcher import (
     WATCHER_LOG_FILE,
-    WATCHER_PID_FILE,
     WatcherError,
     file_watch_tasks,
     is_daemon_running as watcher_is_running,
@@ -140,7 +133,7 @@ def cli() -> None:
 def run(task_name: str, priority: str, enqueue_only: bool) -> None:
     """Enqueue and optionally execute a task."""
     try:
-        config = load_task_by_name(task_name)
+        load_task_by_name(task_name)
     except ConfigError as exc:
         raise click.ClickException(str(exc)) from exc
 

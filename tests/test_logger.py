@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from clodputer.logger import LOG_FILE, StructuredLogger, iter_events, tail_events
+from clodputer.logger import StructuredLogger, iter_events, tail_events
 
 
 def test_structured_logger_writes_events(tmp_path: Path, monkeypatch) -> None:

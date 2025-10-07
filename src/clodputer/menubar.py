@@ -9,7 +9,6 @@ actions for viewing status, opening logs, and launching a terminal dashboard.
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from typing import Optional, Tuple
 
 import rumps

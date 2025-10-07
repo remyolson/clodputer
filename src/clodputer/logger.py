@@ -9,12 +9,10 @@ larger than 10 MB, archiving them under ~/.clodputer/archive/YYYY-MM.log.
 from __future__ import annotations
 
 import json
-import os
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from .queue import ensure_queue_dir
 
