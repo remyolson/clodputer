@@ -34,6 +34,7 @@ This document charts the next wave of improvements, using the original planning 
 - [ ] Publish Homebrew formula (`brew install clodputer`).
 - [ ] Package PyPI distribution with console entry points.
 - [ ] Provide signed binaries / notarization guidelines.
+- [ ] Ensure CI enforces ≥85% coverage and fails on regressions.
 
 ### 6.2 Template & MCP Ecosystem (ref. planning/SUMMARY.md “Use Cases”)
 - [ ] Expand template library (calendar automation, todo triage).
