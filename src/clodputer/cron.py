@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as _dt
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -87,6 +88,18 @@ def _format_command(task: TaskConfig) -> str:
         priority_flag,
     ]
     command = " ".join(part for part in parts if part)
+
+    env_prefix = []
+    claude_bin_env = os.getenv("CLODPUTER_CLAUDE_BIN")
+    if claude_bin_env:
+        env_prefix.append(f"CLODPUTER_CLAUDE_BIN={shlex.quote(claude_bin_env)}")
+    extra_args = os.getenv("CLODPUTER_EXTRA_ARGS")
+    if extra_args:
+        env_prefix.append(f"CLODPUTER_EXTRA_ARGS={shlex.quote(extra_args)}")
+
+    if env_prefix:
+        command = " ".join(env_prefix) + " " + command
+
     command += f" >> {CRON_LOG_FILE} 2>&1"
     return command
 
