@@ -195,9 +195,9 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 - [x] **Implement `clodputer list`**
   - [x] List all configured tasks from `~/.clodputer/tasks/`
   - [x] Show scheduled tasks with cron schedule
-  - [ ] Show file watchers with patterns
+  - [x] Show file watchers with patterns
   - [x] Show manual-only tasks
-  - **Notes**: Displays trigger type and schedule; watcher pattern display pending once watcher configs exist.
+  - **Notes**: Displays trigger type, schedule, and file watcher path/pattern details.
 
 - [x] **Implement `clodputer queue`**
   - [x] Show detailed queue state

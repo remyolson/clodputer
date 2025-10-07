@@ -196,10 +196,21 @@ def list() -> None:  # type: ignore[override]
     if configs:
         click.echo("Configured tasks:")
         for cfg in configs:
-            trigger = cfg.trigger.type if cfg.trigger else "manual"
-            schedule = cfg.schedule.expression if cfg.schedule else "-"
             status = "enabled" if cfg.enabled else "disabled"
-            click.echo(f" • {cfg.name} [{status}] trigger={trigger} schedule={schedule}")
+            schedule = cfg.schedule.expression if cfg.schedule else "-"
+            if cfg.trigger:
+                if cfg.trigger.type == "file_watch":
+                    trigger_desc = (
+                        f"file_watch path={cfg.trigger.path} pattern={cfg.trigger.pattern} "
+                        f"event={cfg.trigger.event}"
+                    )
+                elif cfg.trigger.type == "interval":
+                    trigger_desc = f"interval every {cfg.trigger.seconds}s"
+                else:
+                    trigger_desc = cfg.trigger.type
+            else:
+                trigger_desc = "manual"
+            click.echo(f" • {cfg.name} [{status}] trigger={trigger_desc} schedule={schedule}")
     else:
         click.echo("No task configs found.")
 
