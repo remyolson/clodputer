@@ -340,12 +340,12 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### 3.1 Menu Bar App
 
-- [ ] **Menu bar app** (`src/clodputer/menubar.py`)
-  - [ ] Use rumps for macOS menu bar icon
-  - [ ] Show status indicator (🟢 idle, 🔵 running, 🔴 error)
-  - [ ] Menu: View Status, Open Dashboard, View Logs
-  - [ ] Launch dashboard in terminal
-  - **Notes**:
+- [x] **Menu bar app** (`src/clodputer/menubar.py`)
+  - [x] Use rumps for macOS menu bar icon
+  - [x] Show status indicator (🟢 idle, 🔵 running, 🔴 error)
+  - [x] Menu: View Status, Open Dashboard, View Logs
+  - [x] Launch dashboard in terminal
+  - **Notes**: `ClodputerMenuBar` updates every 30s, reads queue status + recent events for icon/tooltips, offers menu actions to view status, open logs, and launch a Terminal window running `clodputer status`.
 
 - [ ] **Terminal dashboard** (optional)
   - [ ] Use curses for full-screen display

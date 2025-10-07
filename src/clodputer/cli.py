@@ -60,6 +60,7 @@ from .watcher import (
     stop_daemon as stop_watch_daemon,
     watcher_status,
 )
+from .menubar import run_menu_bar
 
 try:
     __version__ = metadata.version("clodputer")
@@ -394,6 +395,16 @@ def watch(daemon: bool, stop: bool, status: bool) -> None:
         run_watch_service(tasks)
     except WatcherError as exc:
         raise click.ClickException(str(exc)) from exc
+
+
+@cli.command()
+def menu() -> None:
+    """Start the Clodputer menu bar application."""
+
+    try:
+        run_menu_bar()
+    except Exception as exc:  # pragma: no cover
+        raise click.ClickException(f"Failed to start menu bar: {exc}") from exc
 
 
 @cli.command()
