@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Rémy Olson
 """
 macOS menu bar application for Clodputer.
 

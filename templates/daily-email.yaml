@@ -1,0 +1,33 @@
+name: daily-email
+description: Drafts morning email summaries using the Gmail MCP.
+enabled: true
+priority: normal
+
+schedule:
+  type: cron
+  expression: "0 8 * * *"
+  timezone: America/Los_Angeles
+
+task:
+  prompt: |
+    Read unread emails from the last 24 hours using the Gmail MCP.
+    Produce a JSON object:
+    {
+      "task": "daily-email",
+      "status": "completed",
+      "summary": "...",
+      "action_items": [...]
+    }
+  allowed_tools:
+    - Read
+    - Write
+    - mcp__gmail
+  timeout: 900
+
+on_success:
+  - log: "{{name}} completed at {{ context.now }}"
+  - notify: false
+
+on_failure:
+  - log: "{{name}} failed: {{error}}"
+  - notify: true

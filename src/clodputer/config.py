@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Rémy Olson
 """
 Task configuration loading and validation.
 
@@ -68,6 +69,24 @@ class IntervalTrigger(BaseModel):
 TriggerConfig = Union[ManualTrigger, FileWatchTrigger, IntervalTrigger]
 
 
+KNOWN_CORE_TOOLS = {
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Search",
+    "Terminal",
+    "List",
+    "Delete",
+    "Code",
+    "FileSystem",
+}
+
+
+def _is_valid_tool(name: str) -> bool:
+    return name in KNOWN_CORE_TOOLS or name.startswith("mcp__")
+
+
 class TaskActions(BaseModel):
     log: Optional[str] = None
     notify: Optional[bool] = None
@@ -90,6 +109,22 @@ class TaskSpec(BaseModel):
             raise ValueError(
                 f"Tools cannot be both allowed and disallowed: {', '.join(sorted(overlap))}"
             )
+
+        invalid_allowed = [tool for tool in self.allowed_tools if not _is_valid_tool(tool)]
+        invalid_disallowed = [tool for tool in self.disallowed_tools if not _is_valid_tool(tool)]
+        if invalid_allowed or invalid_disallowed:
+            problems = []
+            if invalid_allowed:
+                problems.append(f"Unknown allowed_tools: {', '.join(invalid_allowed)}")
+            if invalid_disallowed:
+                problems.append(f"Unknown disallowed_tools: {', '.join(invalid_disallowed)}")
+            hint = (
+                "Built-in tools are limited to "
+                f"{', '.join(sorted(KNOWN_CORE_TOOLS))}. "
+                "Custom MCP tools must be prefixed with 'mcp__'. "
+                "See docs/user/configuration.md for guidance."
+            )
+            raise ValueError("; ".join(problems) + ". " + hint)
         return self
 
 

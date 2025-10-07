@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Rémy Olson
 """
 Click-based CLI entry point for Clodputer.
 

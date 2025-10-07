@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Rémy Olson
 """
 File watcher daemon for Clodputer.
 

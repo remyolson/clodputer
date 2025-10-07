@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Rémy Olson
 """
 Task execution engine integrating configuration, queue management, and cleanup.
 

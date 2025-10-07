@@ -1,3 +1,4 @@
+# Copyright (c) 2025 Rémy Olson
 """
 Utilities for cleaning up Claude Code processes and their children.
 

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from clodputer.config import ConfigError, TaskConfig, load_task_config
+from clodputer.config import ConfigError, TaskConfig, load_task_config, validate_all_tasks
 
 
 def _write_config(path: Path, content: str) -> None:
@@ -77,3 +77,45 @@ task:
         load_task_config(config_path)
     message = str(exc_info.value)
     assert "task.prompt" in message
+
+
+def test_tool_validation(tmp_path: Path) -> None:
+    config_path = tmp_path / "tools.yaml"
+    _write_config(
+        config_path,
+        """
+name: tools
+task:
+  prompt: ok
+  allowed_tools: ["UnknownTool"]
+        """,
+    )
+    with pytest.raises(ConfigError) as exc_info:
+        load_task_config(config_path)
+    assert "Unknown allowed_tools" in str(exc_info.value)
+
+
+def test_validate_all_tasks(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    valid = tmp_path / "valid.yaml"
+    invalid = tmp_path / "invalid.yaml"
+    _write_config(
+        valid,
+        """
+name: valid
+task:
+  prompt: ok
+  allowed_tools: ["Read", "mcp__gmail"]
+        """,
+    )
+    _write_config(
+        invalid,
+        """
+name: invalid
+task:
+  allowed_tools: ["Read"]
+        """,
+    )
+    configs, errors = validate_all_tasks(tmp_path)
+    assert len(configs) == 1
+    assert configs[0].name == "valid"
+    assert errors and "task.prompt" in errors[0][1]

@@ -359,8 +359,8 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 - [x] **Improve error messages**
   - [x] User-friendly error descriptions
   - [x] Suggest fixes for common errors
-  - [ ] Link to troubleshooting docs
-  - **Notes**: Config validation failures now report bullet-listed fields, and CLI errors propagate clearer causes (e.g., missing Claude binary). Linking to docs deferred until documentation phase.
+  - [x] Link to troubleshooting docs
+  - **Notes**: Config validation failures now report bullet-listed fields, CLI errors include actionable hints, and the troubleshooting guide is linked throughout.
 
 - [x] **Add recovery mechanisms**
   - [x] Auto-recover from queue corruption
@@ -370,64 +370,64 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 - [x] **Config validation improvements**
   - [x] Better Pydantic error messages
-  - [ ] Suggest corrections for common mistakes
-  - [ ] Validate tool names against available tools
-  - **Notes**: Validation errors now surface field-level issues; further guidance and tool-name validation to be tackled with docs/polish.
+  - [x] Suggest corrections for common mistakes
+  - [x] Validate tool names against available tools
+  - **Notes**: Validation errors surface field-level issues and highlight invalid tool names with hints to use built-ins or `mcp__` prefixes.
 
 ### 3.3 Documentation
 
-- [ ] **User documentation**
-  - [ ] Installation guide
-  - [ ] Quick start guide
-  - [ ] Configuration reference
-  - [ ] Troubleshooting guide
-  - [ ] FAQ
-  - **Notes**:
+- [x] **User documentation**
+  - [x] Installation guide
+  - [x] Quick start guide
+  - [x] Configuration reference
+  - [x] Troubleshooting guide
+  - [x] FAQ
+  - **Notes**: Added comprehensive user docs under `docs/user/`.
 
-- [ ] **Developer documentation**
-  - [ ] Architecture overview
-  - [ ] Contributing guide
-  - [ ] Code style guide
-  - [ ] Testing guide
-  - **Notes**:
+- [x] **Developer documentation**
+  - [x] Architecture overview
+  - [x] Contributing guide
+  - [x] Code style guide
+  - [x] Testing guide
+  - **Notes**: Added developer docs for architecture, contribution guidelines, testing, and release procedure.
 
-- [ ] **Example task configs**
-  - [ ] Email management example
-  - [ ] Project file processing example
-  - [ ] Todo automation example
-  - [ ] Add to templates/ directory
-  - **Notes**:
+- [x] **Example task configs**
+  - [x] Email management example
+  - [x] Project file processing example
+  - [x] Todo automation example
+  - [x] Add to templates/ directory
+  - **Notes**: Added ready-made templates in `templates/`.
 
 ### 3.4 Open Source Preparation
 
-- [ ] **Code cleanup**
-  - [ ] Add comprehensive docstrings
-  - [ ] Add type hints throughout
-  - [ ] Remove debug code and TODOs
-  - [ ] Format with Black
-  - [ ] Lint with Ruff
-  - **Notes**:
+- [x] **Code cleanup**
+  - [x] Add comprehensive docstrings
+  - [x] Add type hints throughout
+  - [x] Remove debug code and TODOs
+  - [x] Format with Black
+  - [x] Lint with Ruff
+  - **Notes**: Modules include descriptive docstrings/type hints; Black/Ruff enforced locally and in CI.
 
-- [ ] **Testing**
-  - [ ] Write unit tests for core components
-  - [ ] Write integration tests
+- [x] **Testing**
+  - [x] Write unit tests for core components
+  - [x] Write integration tests
   - [ ] Achieve >80% code coverage
-  - [ ] Set up CI/CD (GitHub Actions)
-  - **Notes**:
+  - [x] Set up CI/CD (GitHub Actions)
+  - **Notes**: Extensive unit tests cover config, queue, cron, watcher, menu bar; CI runs linting and tests. Coverage reporting enabled via pytest-cov (current coverage <80%, improving in future iterations).
 
-- [ ] **Legal & Licensing**
-  - [ ] Verify MIT license is appropriate
+- [x] **Legal & Licensing**
+  - [x] Verify MIT license is appropriate
   - [ ] Add copyright headers to files
-  - [ ] Create CONTRIBUTING.md
-  - [ ] Create CODE_OF_CONDUCT.md
-  - **Notes**:
+  - [x] Create CONTRIBUTING.md
+  - [x] Create CODE_OF_CONDUCT.md
+  - **Notes**: MIT license confirmed, contributing guide and Code of Conduct in place. File-level headers remain optional for now.
 
 - [ ] **Release preparation**
   - [ ] Tag v0.1.0 release
   - [ ] Create GitHub release notes
   - [ ] Write announcement blog post
   - [ ] Share on relevant communities
-  - **Notes**:
+  - **Notes**: CHANGELOG and release checklist prepared; publishing tasks to be completed at release time.
 
 **✅ Phase 3 Complete When**: Project is documented, tested, and ready for public release.
 

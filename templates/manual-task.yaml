@@ -1,0 +1,20 @@
+name: manual-review
+description: Run on demand for ad-hoc analysis.
+enabled: true
+priority: normal
+
+task:
+  prompt: |
+    Analyse the attached context and output a JSON report with
+    {"task": "manual-review", "status": "ok", "notes": "..."}.
+  allowed_tools:
+    - Read
+    - Write
+  timeout: 900
+
+on_success:
+  - log: "manual-review completed"
+
+on_failure:
+  - log: "manual-review failed: {{error}}"
+  - notify: true

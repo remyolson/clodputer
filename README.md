@@ -12,7 +12,7 @@ Clodputer is a lightweight macOS automation framework that enables Claude Code t
 
 ## ⚠️ Project Status
 
-**Currently in development.** Planning phase complete (A+ grade from expert engineer review). Implementation in progress.
+**Developer preview.** Core phases (queue, cron, watcher, menu bar) are complete. Installation is source-based while packaging is finalised.
 
 See [docs/planning](docs/planning/) for complete technical specifications and design decisions.
 
@@ -28,17 +28,16 @@ See [docs/planning](docs/planning/) for complete technical specifications and de
 - **Project Assignment Queue**: Drop project files, Claude executes autonomously
 - **Todo List Automation**: Tag tasks with `@claude`, they get done
 
-## Features (Planned)
+## Features
 
-- ✅ Cron-scheduled tasks
-- ✅ File watcher triggers
-- ✅ YAML configuration with Pydantic validation
-- ✅ PID-tracked process cleanup (prevents MCP leaks)
-- ✅ Atomic queue writes (prevents corruption)
-- ✅ Secret management (environment variable substitution)
-- ✅ Menu bar status indicator
-- ✅ `clodputer doctor` diagnostics command
-- ✅ Structured JSON logging
+- ✅ Sequential task queue with atomic persistence
+- ✅ Cron scheduling (`clodputer install` / `uninstall`)
+- ✅ File watcher daemon (`clodputer watch`)
+- ✅ YAML configuration (Pydantic validation, env substitution)
+- ✅ PID-tracked cleanup preventing MCP leaks
+- ✅ Structured logging + CLI viewers (`status`, `logs`)
+- ✅ macOS menu bar indicator (`clodputer menu`)
+- ✅ Diagnostics (`clodputer doctor`)
 
 ## Architecture Highlights
 
@@ -49,13 +48,9 @@ See [docs/planning](docs/planning/) for complete technical specifications and de
 
 ## Documentation
 
-Complete planning documentation available in [docs/planning/](docs/planning/):
-
-- **[00-START-HERE.md](docs/planning/00-START-HERE.md)** - Navigation guide (start here!)
-- **[05-finalized-specification.md](docs/planning/05-finalized-specification.md)** - Complete technical spec
-- **[10-implementation-details.md](docs/planning/10-implementation-details.md)** - Library choices & code examples
-- **[09-safety-features.md](docs/planning/09-safety-features.md)** - Safety mechanisms
-- **[SUMMARY.md](docs/planning/SUMMARY.md)** - Executive summary
+- User docs: [docs/user/](docs/user/) – installation, quick start, configuration, troubleshooting.
+- Developer docs: [docs/dev/](docs/dev/) – architecture, testing, contribution, release checklist.
+- Planning archive: [docs/planning/](docs/planning/) – A+ grade specifications.
 
 ## Engineer Review
 
@@ -89,15 +84,37 @@ open docs/implementation/PROGRESS.md
 
 ## Installation
 
-_Coming soon. Will be available via pip/homebrew once Phase 1 is complete._
+```bash
+git clone https://github.com/remyolson/clodputer.git
+cd clodputer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
 
-## Development
+Export your Claude CLI path if it is not simply `claude`:
 
-This project follows the "tracer bullet" implementation approach:
-1. **Days 1-2**: Prove core interaction (Task Executor end-to-end)
-2. **Week 1**: Queue manager + logging + CLI
-3. **Week 2**: Automation triggers (cron + file watcher)
-4. **Week 3**: Polish + open source release
+```bash
+export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
+export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
+```
+
+See the [installation guide](docs/user/installation.md) for full details.
+
+## CLI Overview
+
+| Command | Description |
+|---------|-------------|
+| `clodputer run <task>` | Enqueue (and optionally execute) a task. |
+| `clodputer list` | List configured tasks and their triggers. |
+| `clodputer status` | Show queue state and recent executions. |
+| `clodputer logs` | Tail formatted execution logs. |
+| `clodputer queue` | Inspect or clear the task queue. |
+| `clodputer install` | Install cron jobs for scheduled tasks. |
+| `clodputer uninstall` | Remove Clodputer-managed cron jobs. |
+| `clodputer watch` | Manage the file watcher daemon. |
+| `clodputer menu` | Launch the macOS menu bar app. |
+| `clodputer doctor` | Run diagnostics. |
 
 ## Tech Stack
 
@@ -115,7 +132,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
-_Contribution guidelines coming soon._
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/dev/contributing.md](docs/dev/contributing.md).
+- Run `ruff check`, `black`, and `pytest` before submitting PRs.
 
 ## Acknowledgments
 

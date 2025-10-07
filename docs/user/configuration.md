@@ -1,0 +1,117 @@
+# Configuration Reference
+
+All tasks live in `~/.clodputer/tasks/*.yaml`. Each file defines one task that can be triggered manually, on a schedule, or via the file watcher.
+
+```yaml
+name: example-task
+description: Optional human readable summary
+enabled: true            # Disable without deleting
+priority: normal         # or "high"
+
+schedule:                 # Optional cron trigger
+  type: cron
+  expression: "0 8 * * *"
+  timezone: America/New_York
+
+trigger:                  # Optional file watcher trigger
+  type: file_watch
+  path: ~/Watched
+  pattern: "*.md"
+  event: created          # created | modified | deleted
+  debounce: 500           # milliseconds
+
+task:
+  prompt: |
+    Instructions Claude Code executes in a single turn.
+  allowed_tools:
+    - Read
+    - Write
+    - mcp__gmail
+  disallowed_tools: []
+  permission_mode: acceptEdits   # acceptEdits | rejectEdits | prompt
+  timeout: 3600                  # seconds
+  context:
+    output_dir: ~/Reports
+  mcp_config: ~/.clodputer/mcp-overrides.json
+
+on_success:
+  - log: "{{name}} completed"
+  - notify: false
+
+on_failure:
+  - log: "{{name}} failed: {{error}}"
+  - notify: true
+```
+
+## Sections
+
+### Metadata
+
+| Field        | Required | Description                                 |
+|--------------|----------|---------------------------------------------|
+| `name`       | ✅       | Unique identifier (used by CLI and queue).  |
+| `description`| ❌       | Human-readable summary.                     |
+| `enabled`    | ✅       | Toggle without deleting the file.           |
+| `priority`   | ✅       | `normal` (default) or `high`.               |
+
+### Scheduling (`schedule`)
+
+- `expression` must be valid cron syntax (`*/5 * * * *`, `0 8 * * *`, etc.).
+- `timezone` is optional; defaults to system timezone if omitted.
+- Use `clodputer install` to rewrite the user crontab. A backup is stored in `~/.clodputer/backups/`.
+
+### File Watcher (`trigger`)
+
+| Field    | Required | Notes                                         |
+|----------|----------|-----------------------------------------------|
+| `path`   | ✅       | Directory to watch (no recursion in MVP).     |
+| `pattern`| ✅       | Glob pattern (`*.md`, `*.json`).              |
+| `event`  | ✅       | `created`, `modified`, or `deleted`.          |
+| `debounce`| ✅      | Delay between repeated events (ms).           |
+
+Start the watcher in the background with `clodputer watch --daemon`. Logs are stored in `~/.clodputer/watcher.log`.
+
+### Task Definition (`task`)
+
+- **Prompt** should produce deterministic JSON where possible (easy to parse downstream).
+- **Tool validation**:
+  - Built-in tools: `Read`, `Write`, `Edit`, `Bash`, `Search`, `Terminal`, `List`, `Delete`, `Code`, `FileSystem`.
+  - Custom MCP tools must be prefixed with `mcp__` (e.g., `mcp__gmail`).
+  - The loader rejects unknown names with suggestions.
+- **Permission mode** mirrors Claude Code CLI.
+- **Timeout** is in seconds and defaults to 3600.
+- **Context** values are injected into prompts using `{{ context.key }}` (manually referenced in your prompt text).
+- **Environment variables**: Use `{{ env.VAR_NAME }}`; they must exist in the current shell.
+
+### Handlers (`on_success` / `on_failure`)
+
+Each entry is a small action dictionary. Supported keys:
+
+| Key     | Description                                                          |
+|---------|----------------------------------------------------------------------|
+| `log`   | Adds a line to the structured log (placeholders like `{{name}}`).   |
+| `notify`| macOS notification (`true` or `false`).                              |
+
+Additional keys can be added in future releases.
+
+## Template Library
+
+Ready-made examples live in [`templates/`](../../templates/):
+
+- `daily-email.yaml`: Morning email digest.
+- `file-watcher.yaml`: Project folder watcher.
+- `manual-task.yaml`: Manual/infrequent tasks.
+
+Copy and customise them to speed up onboarding.
+
+## Best Practices
+
+- Keep prompts single-turn, deterministic, and idempotent.
+- Use high priority sparingly; all tasks run sequentially.
+- Validate with `clodputer doctor` after editing configs.
+- Store secrets in environment variables; never commit credentials.
+- Archive or disable tasks instead of deleting so history remains consistent.
+
+## Troubleshooting
+
+Common error messages are documented in the [Troubleshooting Guide](troubleshooting.md).
