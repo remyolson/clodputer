@@ -356,23 +356,23 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### 3.2 Error Handling & Polish
 
-- [ ] **Improve error messages**
-  - [ ] User-friendly error descriptions
-  - [ ] Suggest fixes for common errors
+- [x] **Improve error messages**
+  - [x] User-friendly error descriptions
+  - [x] Suggest fixes for common errors
   - [ ] Link to troubleshooting docs
-  - **Notes**:
+  - **Notes**: Config validation failures now report bullet-listed fields, and CLI errors propagate clearer causes (e.g., missing Claude binary). Linking to docs deferred until documentation phase.
 
-- [ ] **Add recovery mechanisms**
-  - [ ] Auto-recover from queue corruption
-  - [ ] Handle Claude Code crashes gracefully
+- [x] **Add recovery mechanisms**
+  - [x] Auto-recover from queue corruption
+  - [x] Handle Claude Code crashes gracefully
   - [ ] Retry failed tasks (optional)
-  - **Notes**:
+  - **Notes**: Corrupt `queue.json` files are moved aside and reinitialized automatically; executor already captures non-zero exits, logging failure details for manual follow-up. Automated retries remain optional.
 
-- [ ] **Config validation improvements**
-  - [ ] Better Pydantic error messages
+- [x] **Config validation improvements**
+  - [x] Better Pydantic error messages
   - [ ] Suggest corrections for common mistakes
   - [ ] Validate tool names against available tools
-  - **Notes**:
+  - **Notes**: Validation errors now surface field-level issues; further guidance and tool-name validation to be tackled with docs/polish.
 
 ### 3.3 Documentation
 

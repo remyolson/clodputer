@@ -61,3 +61,19 @@ task:
     )
     with pytest.raises(ConfigError):
         load_task_config(config_path)
+
+
+def test_validation_error_message_is_readable(tmp_path: Path) -> None:
+    config_path = tmp_path / "invalid.yaml"
+    _write_config(
+        config_path,
+        """
+name: invalid
+task:
+  allowed_tools: ["Read"]
+        """,
+    )
+    with pytest.raises(ConfigError) as exc_info:
+        load_task_config(config_path)
+    message = str(exc_info.value)
+    assert "task.prompt" in message

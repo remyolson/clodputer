@@ -142,7 +142,7 @@ def load_task_config(path: Path) -> TaskConfig:
     try:
         return TaskConfig.model_validate(substituted)
     except ValidationError as exc:
-        raise ConfigError(f"Validation error in {path}: {exc}") from exc
+        raise ConfigError(_format_validation_errors(path, exc)) from exc
 
 
 def load_task_by_name(name: str, tasks_dir: Path = TASKS_DIR) -> TaskConfig:
@@ -187,6 +187,15 @@ def validate_all_tasks(
         except ConfigError as exc:
             errors.append((path, str(exc)))
     return configs, errors
+
+
+def _format_validation_errors(path: Path, exc: ValidationError) -> str:
+    lines = [f"Validation error in {path}:"]
+    for error in exc.errors():
+        location = ".".join(str(item) for item in error.get("loc", ())) or "root"
+        message = error.get("msg", "Invalid value")
+        lines.append(f"  - {location}: {message}")
+    return "\n".join(lines)
 
 
 __all__ = [

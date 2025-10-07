@@ -22,3 +22,16 @@ def test_queue_enqueue_and_record_failure(tmp_path: Path) -> None:
     assert not errors
     assert queue.get_status()["queued_counts"]["total"] == 0
     assert len(queue.get_status()["failed_recent"]) == 1
+
+
+def test_corrupt_queue_file_recovers(tmp_path: Path) -> None:
+    queue_file = tmp_path / "queue.json"
+    lock_file = tmp_path / "queue.lock"
+    queue_file.write_text("{not json}", encoding="utf-8")
+
+    manager = QueueManager(queue_file=queue_file, lock_file=lock_file, auto_lock=False)
+    status = manager.get_status()
+    assert status["queued_counts"]["total"] == 0
+    corrupt_files = list(tmp_path.glob("queue.corrupt-*"))
+    if corrupt_files:
+        assert corrupt_files[0].is_file()

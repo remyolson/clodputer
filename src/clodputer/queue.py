@@ -347,7 +347,9 @@ class QueueManager:
         try:
             data = json.loads(self.queue_file.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            raise QueueCorruptionError(f"Failed to load queue state: {exc}") from exc
+            logger.error("Failed to load queue state (%s). Attempting recovery.", exc)
+            self._archive_corrupt_state(exc)
+            return QueueState()
 
         if not isinstance(data, dict):
             raise QueueCorruptionError("Queue file malformed: expected object at top level")
@@ -365,6 +367,19 @@ class QueueManager:
         json.loads(tmp_path.read_text(encoding="utf-8"))
         tmp_path.replace(self.queue_file)
         logger.debug("Persisted queue state to %s", self.queue_file)
+
+    def _archive_corrupt_state(self, exc: Exception) -> None:
+        timestamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
+        corrupt_path = self.queue_file.with_suffix(f".corrupt-{timestamp}")
+        try:
+            self.queue_file.rename(corrupt_path)
+            logger.warning(
+                "Corrupted queue.json moved to %s; a new queue will be created.",
+                corrupt_path,
+            )
+        except OSError:
+            logger.error("Unable to archive corrupt queue file; continuing with empty queue.")
+            raise QueueCorruptionError(f"Failed to load queue state: {exc}") from exc
 
 
 def lockfile_status(lock_file: Path = LOCK_FILE) -> Dict[str, Any]:
