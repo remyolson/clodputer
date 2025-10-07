@@ -1,0 +1,14 @@
+name: email-management
+description: Tracer bullet configuration for verifying the executor pipeline.
+enabled: true
+
+task:
+  prompt: |
+    You are simulating the email-management task for the Clodputer tracer bullet.
+
+    Produce a short JSON object with the following keys:
+      - task_name: the value "email-management"
+      - status: the value "completed"
+      - notes: a sentence acknowledging that this is a dry-run
+
+    The JSON must be on a single line with double-quoted keys.

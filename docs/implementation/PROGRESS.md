@@ -22,38 +22,38 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### Tracer Bullet Checklist
 
-- [ ] **Create minimal Task Executor** (`src/clodputer/executor.py`)
-  - [ ] Load a single hardcoded `email-management.yaml` config
-  - [ ] Parse YAML with PyYAML
-  - [ ] Build `claude -p "..."` command
-  - [ ] Execute command with `subprocess.run()`
-  - [ ] Capture stdout/stderr
-  - [ ] Print captured output to console
-  - **Notes**:
+- [x] **Create minimal Task Executor** (`src/clodputer/executor.py`)
+  - [x] Load a single hardcoded `email-management.yaml` config
+  - [x] Parse YAML with PyYAML
+  - [x] Build `claude -p "..."` command
+  - [x] Execute command (implemented with `subprocess.Popen` to support PID capture)
+  - [x] Capture stdout/stderr
+  - [x] Print captured output to console
+  - **Notes**: `python -m clodputer.executor` now runs end-to-end; uses `CLODPUTER_CONFIG_PATH`/`CLODPUTER_CLAUDE_BIN` overrides for flexibility.
 
-- [ ] **Implement PID-tracked cleanup** (`src/clodputer/cleanup.py`)
-  - [ ] Get Claude Code process PID from `subprocess.Popen`
-  - [ ] Use `psutil.Process(pid).children(recursive=True)` to find all children
-  - [ ] Send SIGTERM to parent and all children
-  - [ ] Wait 5 seconds
-  - [ ] Send SIGKILL to any still running
-  - [ ] Log all killed PIDs
-  - [ ] Search for orphaned `mcp__*` processes as backup
-  - **Notes**:
+- [x] **Implement PID-tracked cleanup** (`src/clodputer/cleanup.py`)
+  - [x] Get Claude Code process PID from `subprocess.Popen`
+  - [x] Use `psutil.Process(pid).children(recursive=True)` to find all children
+  - [x] Send SIGTERM to parent and all children
+  - [x] Wait 5 seconds (via `psutil.wait_procs` with a 5s timeout)
+  - [x] Send SIGKILL to any still running
+  - [x] Log all killed PIDs
+  - [x] Search for orphaned `mcp__*` processes as backup
+  - **Notes**: Returns a `CleanupReport` summarising terminated/killed/orphaned PIDs and logs the details.
 
-- [ ] **Create test YAML config** (`test-task.yaml`)
-  - [ ] Simple email management task
-  - [ ] Uses only Read/Write tools (no MCPs for initial test)
-  - [ ] Short, quick execution (< 30 seconds)
-  - **Notes**:
+- [x] **Create test YAML config** (`test-task.yaml`)
+  - [x] Simple email management task
+  - [x] Uses only Read/Write tools (no MCPs for initial test)
+  - [x] Short, quick execution (< 30 seconds)
+  - **Notes**: Added `email-management.yaml` tracer config at repo root; prompts Claude to emit a single-line JSON summary for deterministic testing.
 
 - [ ] **Test end-to-end**
-  - [ ] Run: `python -m clodputer.executor`
-  - [ ] Verify Claude Code executes
-  - [ ] Verify output captured
-  - [ ] Verify all processes cleaned up (check `ps aux | grep mcp`)
-  - [ ] No orphaned processes remain
-  - **Notes**:
+  - [x] Run: `python -m clodputer.executor`
+  - [x] Verify Claude Code executes
+  - [x] Verify output captured
+  - [x] Verify all processes cleaned up (check `ps aux | grep mcp`)
+  - [x] No orphaned processes remain
+  - **Notes**: Real Claude CLI run (`CLODPUTER_CLAUDE_BIN=/Users/ro/.claude/local/claude --dangerously-skip-permissions`) produced the expected JSON response and exited cleanly. `ps` only showed pre-existing long-lived Claude/MCP helpers (start times days prior); no new processes remained after execution.
 
 **✅ Tracer Bullet Complete When**: Can run a task, capture output, and clean up perfectly. This proves the riskiest part works.
 
