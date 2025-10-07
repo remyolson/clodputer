@@ -278,33 +278,33 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### 2.2 File Watcher
 
-- [ ] **File watcher implementation** (`src/clodputer/watcher.py`)
-  - [ ] Use watchdog library for cross-platform watching
-  - [ ] Monitor configured directories
-  - [ ] Match file patterns (glob)
-  - [ ] Debounce file events (wait for writes to complete)
-  - [ ] Enqueue tasks when files match
-  - **Notes**:
+- [x] **File watcher implementation** (`src/clodputer/watcher.py`)
+  - [x] Use watchdog library for cross-platform watching
+  - [x] Monitor configured directories
+  - [x] Match file patterns (glob)
+  - [x] Debounce file events (wait for writes to complete)
+  - [x] Enqueue tasks when files match
+  - **Notes**: `run_watch_service` schedules per-task handlers, respects per-config debounce, and enqueues via `QueueManager` with metadata.
 
-- [ ] **Watcher daemon mode**
-  - [ ] Run in background as daemon
-  - [ ] Log to `~/.clodputer/watcher.log`
-  - [ ] Handle crashes and restarts
-  - [ ] PID file for process management
-  - **Notes**:
+- [x] **Watcher daemon mode**
+  - [x] Run in background as daemon
+  - [x] Log to `~/.clodputer/watcher.log`
+  - [x] Handle crashes and restarts
+  - [x] PID file for process management
+  - **Notes**: `start_daemon` spawns a multiprocessing process, records PID, and the loop reloads configs on errors with logged retries.
 
-- [ ] **Implement `clodputer watch`**
-  - [ ] Start watcher daemon
-  - [ ] Support `--daemon` flag for background mode
-  - [ ] Support `--stop` to stop daemon
-  - [ ] Show watcher status
-  - **Notes**:
+- [x] **Implement `clodputer watch`**
+  - [x] Start watcher daemon
+  - [x] Support `--daemon` flag for background mode
+  - [x] Support `--stop` to stop daemon
+  - [x] Show watcher status
+  - **Notes**: CLI command handles foreground execution, daemon lifecycle, and status reporting with log path hints.
 
-- [ ] **Add `doctor` diagnostic** (incremental)
-  - [ ] Check if watcher daemon is running
-  - [ ] Verify watched directories exist
-  - [ ] Check file permissions on watched dirs
-  - **Notes**:
+- [x] **Add `doctor` diagnostic** (incremental)
+  - [x] Check if watcher daemon is running
+  - [x] Verify watched directories exist
+  - [x] Check file permissions on watched dirs
+  - **Notes**: `doctor` now validates watcher daemon state, path existence, and log directory availability when file-watch tasks exist.
 
 ### 2.3 End-to-End Testing
 

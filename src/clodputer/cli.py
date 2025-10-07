@@ -9,6 +9,7 @@ Commands included:
 - clodputer queue
 - clodputer install
 - clodputer uninstall
+- clodputer watch
 - clodputer doctor
 """
 
@@ -48,6 +49,17 @@ from .cron import (
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
 from .queue import QueueCorruptionError, QueueManager, lockfile_status
+from .watcher import (
+    WATCHER_LOG_FILE,
+    WATCHER_PID_FILE,
+    WatcherError,
+    file_watch_tasks,
+    is_daemon_running as watcher_is_running,
+    run_watch_service,
+    start_daemon as start_watch_daemon,
+    stop_daemon as stop_watch_daemon,
+    watcher_status,
+)
 
 try:
     __version__ = metadata.version("clodputer")
@@ -332,6 +344,59 @@ def uninstall(dry_run: bool) -> None:
 
 
 @cli.command()
+@click.option("--daemon", is_flag=True, help="Run watcher service in the background")
+@click.option("--stop", is_flag=True, help="Stop the watcher daemon")
+@click.option("--status", is_flag=True, help="Show watcher daemon status")
+def watch(daemon: bool, stop: bool, status: bool) -> None:
+    """Manage the file watcher service."""
+
+    chosen = sum(1 for flag in (daemon, stop, status) if flag)
+    if chosen > 1:
+        raise click.ClickException("Choose only one of --daemon, --stop, or --status")
+
+    if status:
+        info = watcher_status()
+        if info["running"]:
+            click.echo(f"Watcher daemon running (PID {info['pid']}). Log: {info['log_file']}")
+        else:
+            click.echo("Watcher daemon not running.")
+        return
+
+    if stop:
+        if stop_watch_daemon():
+            click.echo("Watcher daemon stopped.")
+        else:
+            click.echo("Watcher daemon is not running.")
+        return
+
+    configs, errors = validate_all_tasks()
+    if errors:
+        click.echo("⚠️  Some task configs are invalid; fix them before starting the watcher:")
+        for path, err in errors:
+            click.echo(f" • {path}: {err}")
+        raise click.ClickException("Task config validation failed")
+
+    tasks = file_watch_tasks(configs)
+    if not tasks:
+        click.echo("No tasks configured with file_watch triggers.")
+        return
+
+    if daemon:
+        try:
+            pid = start_watch_daemon()
+        except WatcherError as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.echo(f"Watcher daemon started (PID {pid}). Log: {WATCHER_LOG_FILE}")
+        return
+
+    click.echo("Starting watcher in foreground. Press Ctrl+C to stop.")
+    try:
+        run_watch_service(tasks)
+    except WatcherError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@cli.command()
 def status() -> None:
     """Show queue state and recent activity."""
     queue_manager = QueueManager(auto_lock=False)
@@ -402,6 +467,7 @@ def doctor() -> None:
 
     configs, config_errors = validate_all_tasks()
     scheduled = scheduled_tasks(configs)
+    watch_tasks = file_watch_tasks(configs)
 
     def cron_definitions_valid() -> bool:
         if not scheduled:
@@ -411,6 +477,16 @@ def doctor() -> None:
             return True
         except CronError:
             return False
+
+    def watch_paths_exist() -> bool:
+        if not watch_tasks:
+            return True
+        for task in watch_tasks:
+            trigger = task.trigger
+            assert trigger is not None and trigger.type == "file_watch"
+            if not Path(trigger.path).expanduser().exists():
+                return False
+        return True
 
     checks.append(("Task configs valid", lambda: not config_errors))
 
@@ -422,6 +498,15 @@ def doctor() -> None:
         )
     )
     checks.append(("Cron job definitions valid", cron_definitions_valid))
+
+    checks.append(
+        (
+            "Watcher daemon running",
+            lambda: not watch_tasks or watcher_is_running(),
+        )
+    )
+    checks.append(("Watch paths exist", watch_paths_exist))
+    checks.append(("Watcher log directory available", lambda: WATCHER_LOG_FILE.parent.exists()))
     if LOG_FILE.exists():
         checks.append(("Execution log readable", lambda: LOG_FILE.exists()))
 
