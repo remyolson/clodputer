@@ -65,9 +65,31 @@ Complete planning documentation available in [docs/planning/](docs/planning/):
 
 — Expert Engineer Review, October 2025
 
+## 🚀 For Engineers: Getting Started
+
+**If you're implementing this project**, start here:
+
+1. **Read**: [CONTRIBUTING.md](CONTRIBUTING.md) - Complete onboarding guide
+2. **Follow**: [docs/implementation/PROGRESS.md](docs/implementation/PROGRESS.md) - Implementation tracker
+3. **Reference**: [docs/planning/](docs/planning/) - A+ grade technical specifications
+
+**Quick setup**:
+```bash
+# Install dependencies
+pip install -e ".[dev]"
+
+# Read the plan
+open docs/planning/00-START-HERE.md
+
+# Start implementing
+open docs/implementation/PROGRESS.md
+```
+
+**First task**: Complete the "tracer bullet" (Phase 0 in PROGRESS.md) - prove core interaction works end-to-end.
+
 ## Installation
 
-_Coming soon. Repository structure being set up._
+_Coming soon. Will be available via pip/homebrew once Phase 1 is complete._
 
 ## Development
 
