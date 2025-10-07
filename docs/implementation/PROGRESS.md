@@ -76,37 +76,37 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### 1.2 Queue Manager
 
-- [ ] **Implement QueueManager class** (`src/clodputer/queue.py`)
-  - [ ] Load/save queue from JSON file (`~/.clodputer/queue.json`)
-  - [ ] Implement atomic writes (temp file + rename)
-  - [ ] `enqueue(task_name, priority='normal')` method
-  - [ ] `get_next_task()` method (respects priority)
-  - [ ] `mark_running(task_id, pid)` method
-  - [ ] `mark_completed(task_id, result)` method
-  - [ ] `mark_failed(task_id, error)` method
-  - [ ] `get_status()` method for display
-  - **Notes**:
+- [x] **Implement QueueManager class** (`src/clodputer/queue.py`)
+  - [x] Load/save queue from JSON file (`~/.clodputer/queue.json`)
+  - [x] Implement atomic writes (temp file + rename)
+  - [x] `enqueue(task_name, priority='normal')` method
+  - [x] `get_next_task()` method (respects priority)
+  - [x] `mark_running(task_id, pid)` method
+  - [x] `mark_completed(task_id, result)` method
+  - [x] `mark_failed(task_id, error)` method
+  - [x] `get_status()` method for display
+  - **Notes**: Queue state tracked via dataclasses with UUID task IDs, persisted after every mutation; smoke-tested in an isolated temp directory.
 
-- [ ] **Implement lockfile mechanism**
-  - [ ] Create lock at `~/.clodputer/clodputer.lock` on start
-  - [ ] Write current PID to lockfile
-  - [ ] Check for stale locks (PID not running)
-  - [ ] Clean up lockfile on exit
-  - [ ] Handle crashes gracefully
-  - **Notes**:
+- [x] **Implement lockfile mechanism**
+  - [x] Create lock at `~/.clodputer/clodputer.lock` on start
+  - [x] Write current PID to lockfile
+  - [x] Check for stale locks (PID not running)
+  - [x] Clean up lockfile on exit
+  - [x] Handle crashes gracefully
+  - **Notes**: `QueueManager` auto-acquires the lock and removes stale files; exposes context-manager + `release_lock` for orderly shutdowns.
 
-- [ ] **Queue state management**
-  - [ ] Define JSON schema for queue.json
-  - [ ] Handle queue corruption (validate on load)
-  - [ ] Support high/normal priority
-  - [ ] Prevent duplicate task IDs
-  - **Notes**:
+- [x] **Queue state management**
+  - [x] Define JSON schema for queue.json
+  - [x] Handle queue corruption (validate on load)
+  - [x] Support high/normal priority
+  - [x] Prevent duplicate task IDs
+  - **Notes**: State serialised with a deterministic schema (`QueueState`); loader raises `QueueCorruptionError` on parse issues and priorities enforced in `_sorted_queue`.
 
-- [ ] **Add `doctor` diagnostic** (incremental)
-  - [ ] Check for stale lockfile
-  - [ ] Validate queue.json is valid JSON
-  - [ ] Check queue state is consistent
-  - **Notes**:
+- [x] **Add `doctor` diagnostic** (incremental)
+  - [x] Check for stale lockfile
+  - [x] Validate queue.json is valid JSON
+  - [x] Check queue state is consistent
+  - **Notes**: Introduced `lockfile_status()` and `QueueManager.validate_state()` helpers for upcoming `clodputer doctor` integration.
 
 ### 1.3 Task Executor (Full Implementation)
 

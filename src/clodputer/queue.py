@@ -1,0 +1,388 @@
+"""
+Queue management for sequential task execution.
+
+This module implements the Phase 1 requirements from the planning docs:
+* Queue state persisted at ~/.clodputer/queue.json with atomic writes
+* Sequential execution with optional high/normal priority
+* Lock-file protection to prevent concurrent queue managers
+* Basic diagnostics helpers for future `doctor` integration
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import tempfile
+import time
+import uuid
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+import psutil
+
+logger = logging.getLogger(__name__)
+
+Priority = Literal["normal", "high"]
+
+QUEUE_DIR = Path.home() / ".clodputer"
+QUEUE_FILE = QUEUE_DIR / "queue.json"
+LOCK_FILE = QUEUE_DIR / "clodputer.lock"
+
+
+def ensure_queue_dir(path: Path = QUEUE_DIR) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def _timestamp() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+@dataclass
+class QueueItem:
+    id: str
+    name: str
+    priority: Priority
+    enqueued_at: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "priority": self.priority,
+            "enqueued_at": self.enqueued_at,
+            "metadata": self.metadata,
+        }
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "QueueItem":
+        return QueueItem(
+            id=str(data["id"]),
+            name=str(data["name"]),
+            priority=data.get("priority", "normal"),  # type: ignore[return-value]
+            enqueued_at=str(data.get("enqueued_at", _timestamp())),
+            metadata=dict(data.get("metadata") or {}),
+        )
+
+
+@dataclass
+class RunningTask:
+    id: str
+    name: str
+    pid: int
+    started_at: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "pid": self.pid,
+            "started_at": self.started_at,
+        }
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "RunningTask":
+        return RunningTask(
+            id=str(data["id"]),
+            name=str(data["name"]),
+            pid=int(data["pid"]),
+            started_at=str(data.get("started_at", _timestamp())),
+        )
+
+
+@dataclass
+class QueueState:
+    running: Optional[RunningTask] = None
+    queued: List[QueueItem] = field(default_factory=list)
+    completed: List[Dict[str, Any]] = field(default_factory=list)
+    failed: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "running": self.running.to_dict() if self.running else None,
+            "queued": [item.to_dict() for item in self.queued],
+            "completed": self.completed,
+            "failed": self.failed,
+        }
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "QueueState":
+        running = data.get("running")
+        queued = data.get("queued") or []
+        completed = data.get("completed") or []
+        failed = data.get("failed") or []
+        return QueueState(
+            running=RunningTask.from_dict(running) if running else None,
+            queued=[QueueItem.from_dict(item) for item in queued],
+            completed=list(completed),
+            failed=list(failed),
+        )
+
+
+class QueueCorruptionError(RuntimeError):
+    """Raised when queue.json cannot be parsed or validated."""
+
+
+class LockAcquisitionError(RuntimeError):
+    """Raised when the lock file cannot be acquired."""
+
+
+class QueueManager:
+    """
+    Manage sequential task execution with persistent state.
+
+    This class is intentionally conservative: every state mutation is written to disk
+    immediately using atomic rename semantics. For now there is no in-memory caching
+    across instances; callers should create a single QueueManager instance when
+    managing the queue within a process.
+    """
+
+    def __init__(
+        self,
+        queue_file: Path = QUEUE_FILE,
+        lock_file: Path = LOCK_FILE,
+        auto_lock: bool = True,
+    ) -> None:
+        ensure_queue_dir(queue_file.parent)
+        self.queue_file = queue_file
+        self.lock_file = lock_file
+        self._state = self._load_state()
+        self._lock_acquired = False
+        if auto_lock:
+            self.acquire_lock()
+
+    # ------------------------------------------------------------------
+    # Lockfile management
+    # ------------------------------------------------------------------
+    def acquire_lock(self) -> None:
+        if self._lock_acquired:
+            return
+
+        if self.lock_file.exists():
+            try:
+                existing_pid = int(self.lock_file.read_text().strip())
+            except ValueError:
+                existing_pid = -1
+
+            if existing_pid > 0 and psutil.pid_exists(existing_pid):
+                raise LockAcquisitionError(
+                    f"Clodputer queue already locked by PID {existing_pid}"
+                )
+
+            logger.warning("Removing stale lock file at %s", self.lock_file)
+            self.lock_file.unlink(missing_ok=True)
+
+        self.lock_file.write_text(str(os.getpid()))
+        self._lock_acquired = True
+
+    def release_lock(self) -> None:
+        if self._lock_acquired and self.lock_file.exists():
+            self.lock_file.unlink(missing_ok=True)
+        self._lock_acquired = False
+
+    def __del__(self) -> None:  # pragma: no cover
+        try:
+            self.release_lock()
+        except Exception:
+            pass
+
+    def __enter__(self) -> "QueueManager":
+        self.acquire_lock()
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.release_lock()
+
+    # ------------------------------------------------------------------
+    # Queue operations
+    # ------------------------------------------------------------------
+    def enqueue(
+        self,
+        task_name: str,
+        priority: Priority = "normal",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> QueueItem:
+        metadata = metadata or {}
+        task_id = str(uuid.uuid4())
+        item = QueueItem(
+            id=task_id,
+            name=task_name,
+            priority=priority,
+            enqueued_at=_timestamp(),
+            metadata=metadata,
+        )
+        self._state.queued.append(item)
+        self._state.queued = self._sorted_queue(self._state.queued)
+        self._persist_state()
+        logger.info("Enqueued task %s (%s)", item.name, item.id)
+        return item
+
+    def get_next_task(self) -> Optional[QueueItem]:
+        if not self._state.queued:
+            return None
+        return self._sorted_queue(self._state.queued)[0]
+
+    def mark_running(self, task_id: str, pid: int) -> RunningTask:
+        item, index = self._find_queue_item(task_id)
+        if item is None:
+            raise KeyError(f"Task {task_id} not found in queue")
+
+        running = RunningTask(
+            id=item.id,
+            name=item.name,
+            pid=pid,
+            started_at=_timestamp(),
+        )
+        del self._state.queued[index]
+        self._state.running = running
+        self._persist_state()
+        logger.info("Task %s (%s) marked running with pid %s", item.name, item.id, pid)
+        return running
+
+    def mark_completed(self, task_id: str, result: Dict[str, Any]) -> None:
+        running = self._state.running
+        if not running or running.id != task_id:
+            raise KeyError(f"Task {task_id} is not the currently running task")
+
+        entry = {
+            "id": running.id,
+            "name": running.name,
+            "completed_at": _timestamp(),
+            "result": result,
+        }
+        self._state.completed.append(entry)
+        self._state.running = None
+        self._persist_state()
+        logger.info("Task %s (%s) marked completed", running.name, running.id)
+
+    def mark_failed(self, task_id: str, error: Dict[str, Any]) -> None:
+        running = self._state.running
+        if not running or running.id != task_id:
+            raise KeyError(f"Task {task_id} is not the currently running task")
+
+        entry = {
+            "id": running.id,
+            "name": running.name,
+            "failed_at": _timestamp(),
+            "error": error,
+        }
+        self._state.failed.append(entry)
+        self._state.running = None
+        self._persist_state()
+        logger.info("Task %s (%s) marked failed", running.name, running.id)
+
+    def cancel(self, task_id: str) -> bool:
+        item, index = self._find_queue_item(task_id)
+        if item is None:
+            return False
+        del self._state.queued[index]
+        self._persist_state()
+        logger.info("Cancelled queued task %s (%s)", item.name, item.id)
+        return True
+
+    def clear_queue(self) -> None:
+        self._state.queued.clear()
+        self._persist_state()
+        logger.info("Cleared queued tasks")
+
+    # ------------------------------------------------------------------
+    # Diagnostics and status
+    # ------------------------------------------------------------------
+    def get_status(self) -> Dict[str, Any]:
+        return {
+            "running": self._state.running.to_dict() if self._state.running else None,
+            "queued": [item.to_dict() for item in self._sorted_queue(self._state.queued)],
+            "queued_counts": {
+                "total": len(self._state.queued),
+                "high_priority": sum(1 for item in self._state.queued if item.priority == "high"),
+            },
+            "completed_recent": self._state.completed[-10:],
+            "failed_recent": self._state.failed[-10:],
+        }
+
+    def validate_state(self) -> Tuple[bool, List[str]]:
+        errors: List[str] = []
+        seen_ids = set()
+        for item in self._state.queued:
+            if item.id in seen_ids:
+                errors.append(f"Duplicate queued task id {item.id}")
+            seen_ids.add(item.id)
+            if item.priority not in ("high", "normal"):
+                errors.append(f"Invalid priority for {item.id}: {item.priority}")
+        running = self._state.running
+        if running and running.id in seen_ids:
+            errors.append(f"Task {running.id} appears queued and running")
+        return (len(errors) == 0, errors)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+    def _find_queue_item(self, task_id: str) -> Tuple[Optional[QueueItem], Optional[int]]:
+        for index, item in enumerate(self._state.queued):
+            if item.id == task_id:
+                return item, index
+        return None, None
+
+    @staticmethod
+    def _sorted_queue(items: List[QueueItem]) -> List[QueueItem]:
+        return sorted(
+            items,
+            key=lambda i: (0 if i.priority == "high" else 1, i.enqueued_at),
+        )
+
+    def _load_state(self) -> QueueState:
+        if not self.queue_file.exists():
+            return QueueState()
+
+        try:
+            data = json.loads(self.queue_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise QueueCorruptionError(f"Failed to load queue state: {exc}") from exc
+
+        if not isinstance(data, dict):
+            raise QueueCorruptionError("Queue file malformed: expected object at top level")
+        return QueueState.from_dict(data)
+
+    def _persist_state(self) -> None:
+        serialized = json.dumps(self._state.to_dict(), indent=2, sort_keys=True)
+        tmp_dir = self.queue_file.parent if self.queue_file.parent.exists() else QUEUE_DIR
+
+        with tempfile.NamedTemporaryFile("w", dir=tmp_dir, delete=False) as tmp:
+            tmp.write(serialized)
+            tmp_path = Path(tmp.name)
+
+        # Verify file readability before atomic replace
+        json.loads(tmp_path.read_text(encoding="utf-8"))
+        tmp_path.replace(self.queue_file)
+        logger.debug("Persisted queue state to %s", self.queue_file)
+
+
+def lockfile_status(lock_file: Path = LOCK_FILE) -> Dict[str, Any]:
+    """
+    Report on the current lock file status for diagnostics.
+    """
+    if not lock_file.exists():
+        return {"locked": False, "pid": None, "stale": False}
+    try:
+        pid = int(lock_file.read_text().strip())
+    except ValueError:
+        return {"locked": True, "pid": None, "stale": True}
+    is_running = psutil.pid_exists(pid)
+    return {
+        "locked": True,
+        "pid": pid,
+        "stale": not is_running,
+    }
+
+
+__all__ = [
+    "QueueManager",
+    "QueueCorruptionError",
+    "LockAcquisitionError",
+    "QueueItem",
+    "RunningTask",
+    "QueueState",
+    "lockfile_status",
+]
