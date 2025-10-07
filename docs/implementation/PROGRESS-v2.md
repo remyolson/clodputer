@@ -40,23 +40,12 @@ This document charts the next wave of improvements, using the original planning 
 - [ ] Document best practices for MCP authentication (guides + code samples).
 - [ ] Provide community-driven template submission process.
 
-## Phase 7: Cross-Platform Expansion (Long-Term)
-
-### 7.1 Linux Support (ref. planning/Future Enhancements)
-- [ ] Abstract scheduler interface (cron/systemd).
-- [ ] Replace rumps with cross-platform tray solution when feasible.
-- [ ] Validate watchdog backends (inotify, polling) across distros.
-
-### 7.2 Windows Support
-- [ ] Research Task Scheduler integration.
-- [ ] Prototype Windows-compatible watcher (ReadDirectoryChangesW).
-- [ ] Evaluate packaging options (MSI, winget).
-
 ## Tracking & Metrics
 
 - Maintain progress updates in this document and mirror them in `docs/implementation/PROGRESS.md`.
 - For each phase, log manual test results and update diagnostics to cover new features.
 - Revisit `docs/dev/release.md` before shipping each milestone, ensuring the release checklist is complete.
+- Target ≥85% coverage across `src/clodputer` and keep `pytest --cov` green in CI.
 
 ---
 
