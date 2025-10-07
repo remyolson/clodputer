@@ -242,39 +242,39 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### 2.1 Cron Integration
 
-- [ ] **Cron schedule parser** (`src/clodputer/cron.py`)
-  - [ ] Parse cron syntax from task configs
-  - [ ] Support common formats (daily, hourly, custom)
-  - [ ] Validate cron syntax
-  - [ ] Handle timezone considerations
-  - **Notes**:
+- [x] **Cron schedule parser** (`src/clodputer/cron.py`)
+  - [x] Parse cron syntax from task configs
+  - [x] Support common formats (daily, hourly, custom)
+  - [x] Validate cron syntax
+  - [x] Handle timezone considerations
+  - **Notes**: `validate_cron_expression` validates macros and 5/6-field expressions; timezone applied via `CRON_TZ=` per job.
 
-- [ ] **Cron entry generator**
-  - [ ] Generate cron entries for scheduled tasks
-  - [ ] Use `clodputer run <task>` as command
-  - [ ] Add error logging to cron output
-  - [ ] Support user-specific crontab
-  - **Notes**:
+- [x] **Cron entry generator**
+  - [x] Generate cron entries for scheduled tasks
+  - [x] Use `clodputer run <task>` as command
+  - [x] Add error logging to cron output
+  - [x] Support user-specific crontab
+  - **Notes**: `generate_cron_section` builds a managed block with log redirection to `~/.clodputer/cron.log`.
 
-- [ ] **Implement `clodputer install`**
-  - [ ] Backup existing crontab
-  - [ ] Add Clodputer section to crontab
-  - [ ] Install all scheduled tasks
-  - [ ] Verify installation succeeded
-  - [ ] Show installed cron jobs
-  - **Notes**:
+- [x] **Implement `clodputer install`**
+  - [x] Backup existing crontab
+  - [x] Add Clodputer section to crontab
+  - [x] Install all scheduled tasks
+  - [x] Verify installation succeeded
+  - [x] Show installed cron jobs
+  - **Notes**: `clodputer install` validates configs, supports `--dry-run`, and writes a backup before updating `crontab`.
 
-- [ ] **Implement `clodputer uninstall`**
-  - [ ] Remove Clodputer section from crontab
-  - [ ] Keep backup of removed entries
-  - [ ] Verify removal succeeded
-  - **Notes**:
+- [x] **Implement `clodputer uninstall`**
+  - [x] Remove Clodputer section from crontab
+  - [x] Keep backup of removed entries
+  - [x] Verify removal succeeded
+  - **Notes**: `clodputer uninstall` optionally previews the managed block and removes it with backup restoration.
 
-- [ ] **Add `doctor` diagnostic** (incremental)
-  - [ ] Check if cron daemon is running
-  - [ ] Verify cron jobs are installed
-  - [ ] Check cron job syntax
-  - **Notes**:
+- [x] **Add `doctor` diagnostic** (incremental)
+  - [x] Check if cron daemon is running
+  - [x] Verify cron jobs are installed
+  - [x] Check cron job syntax
+  - **Notes**: `doctor` now checks cron daemon presence, ensures scheduled tasks map to installed jobs, and validates cron definitions.
 
 ### 2.2 File Watcher
 

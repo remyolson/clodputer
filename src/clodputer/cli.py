@@ -1,12 +1,14 @@
 """
 Click-based CLI entry point for Clodputer.
 
-Commands included in Phase 1:
+Commands included:
 - clodputer run <task>
 - clodputer status
 - clodputer logs
 - clodputer list
 - clodputer queue
+- clodputer install
+- clodputer uninstall
 - clodputer doctor
 """
 
@@ -25,11 +27,23 @@ import click
 
 from .config import (
     ConfigError,
-    TaskConfig,
     ensure_tasks_dir,
     list_task_names,
     load_task_by_name,
     validate_all_tasks,
+)
+from .cron import (
+    CRON_LOG_FILE,
+    CRON_SECTION_BEGIN,
+    CRON_SECTION_END,
+    CronError,
+    cron_section_present,
+    generate_cron_section,
+    install_cron_jobs,
+    is_cron_daemon_running,
+    read_crontab,
+    scheduled_tasks,
+    uninstall_cron_jobs,
 )
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
@@ -251,6 +265,73 @@ def queue(clear: bool) -> None:
 
 
 @cli.command()
+@click.option("--dry-run", is_flag=True, help="Preview cron entries without modifying crontab.")
+def install(dry_run: bool) -> None:
+    """Install scheduled tasks into the user's crontab."""
+    configs, errors = validate_all_tasks()
+    if errors:
+        click.echo("⚠️  Some task configs are invalid; fix them before installing cron jobs:")
+        for path, err in errors:
+            click.echo(f" • {path}: {err}")
+        raise click.ClickException("Task config validation failed")
+
+    tasks = scheduled_tasks(configs)
+    if not tasks:
+        click.echo("No enabled tasks with schedules found.")
+        return
+
+    section = generate_cron_section(tasks)
+    if dry_run:
+        click.echo(section.rstrip())
+        return
+
+    try:
+        result = install_cron_jobs(tasks)
+    except CronError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    click.echo(
+        f"Installed {result['installed']} cron job(s). Backup written to {result['backup']}."
+    )
+    click.echo(f"Cron log: {CRON_LOG_FILE}")
+
+
+@cli.command()
+@click.option(
+    "--dry-run", is_flag=True, help="Show current Clodputer cron section without removing it."
+)
+def uninstall(dry_run: bool) -> None:
+    """Remove Clodputer-managed cron jobs."""
+    try:
+        current = read_crontab()
+    except CronError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if CRON_SECTION_BEGIN not in current:
+        click.echo("No Clodputer cron section found.")
+        return
+
+    if dry_run:
+        click.echo(
+            current[
+                current.index(CRON_SECTION_BEGIN) : current.index(CRON_SECTION_END)
+                + len(CRON_SECTION_END)
+            ]
+        )
+        return
+
+    try:
+        result = uninstall_cron_jobs()
+    except CronError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if result["removed"]:
+        click.echo(f"Removed Clodputer cron section. Backup written to {result['backup']}.")
+    else:
+        click.echo("No Clodputer cron section found.")
+
+
+@cli.command()
 def status() -> None:
     """Show queue state and recent activity."""
     queue_manager = QueueManager(auto_lock=False)
@@ -320,8 +401,27 @@ def doctor() -> None:
     checks.append(("Queue integrity", lambda: queue_ok))
 
     configs, config_errors = validate_all_tasks()
+    scheduled = scheduled_tasks(configs)
+
+    def cron_definitions_valid() -> bool:
+        if not scheduled:
+            return True
+        try:
+            generate_cron_section(scheduled)
+            return True
+        except CronError:
+            return False
+
     checks.append(("Task configs valid", lambda: not config_errors))
 
+    checks.append(("Cron daemon running", is_cron_daemon_running))
+    checks.append(
+        (
+            "Clodputer cron jobs installed",
+            lambda: not scheduled or cron_section_present(),
+        )
+    )
+    checks.append(("Cron job definitions valid", cron_definitions_valid))
     if LOG_FILE.exists():
         checks.append(("Execution log readable", lambda: LOG_FILE.exists()))
 
