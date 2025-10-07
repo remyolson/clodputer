@@ -116,6 +116,74 @@ See the [installation guide](docs/user/installation.md) for full details.
 | `clodputer menu` | Launch the macOS menu bar app. |
 | `clodputer doctor` | Run diagnostics. |
 
+## First Two Example Runs
+
+The following walkthroughs mirror the templates and workflows defined in the planning package—mostly Phase 1/2 items from [05-finalized-specification.md](docs/planning/05-finalized-specification.md) and [09-safety-features.md](docs/planning/09-safety-features.md).
+
+### Example 1: Daily Email Summary (Scheduled)
+
+1. **Clone & install**
+   ```bash
+   git clone https://github.com/remyolson/clodputer.git
+   cd clodputer
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -e ".[dev]"
+   export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
+   export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
+   ```
+2. **Seed the task**
+   ```bash
+   mkdir -p ~/.clodputer/tasks
+   cp templates/daily-email.yaml ~/.clodputer/tasks/email-summary.yaml
+   ```
+   The template aligns with the “Daily Email Management” use case in the planning docs.
+3. **Manual smoke test**
+   ```bash
+   clodputer run email-summary
+   clodputer status
+   clodputer logs --tail 5
+   ```
+   Expect a ✅ entry with JSON output recorded in `~/.clodputer/execution.log`.
+4. **Install cron automation**
+   ```bash
+   clodputer install
+   crontab -l
+   tail -f ~/.clodputer/cron.log
+   ```
+   Cron output demonstrates the scheduling flow described in [08-installation-and-integration.md](docs/planning/08-installation-and-integration.md).
+
+### Example 2: Project File Watcher (Event-Driven)
+
+1. **Create a watched directory**
+   ```bash
+   mkdir -p ~/WatchedProjects
+   ```
+2. **Seed the watcher task**
+   ```bash
+   cp templates/file-watcher.yaml ~/.clodputer/tasks/project-watcher.yaml
+   sed -i '' 's|~/Projects/Inbox|~/WatchedProjects|' ~/.clodputer/tasks/project-watcher.yaml
+   ```
+3. **Start the watcher**
+   ```bash
+   clodputer watch --daemon
+   clodputer watch --status
+   ```
+4. **Trigger a file event**
+   ```bash
+   echo "# New Project" > ~/WatchedProjects/demo.md
+   sleep 2
+   clodputer queue
+   clodputer status
+   ```
+   You should see the task enqueued with metadata containing the file path—matching the Phase 2 watcher design.
+5. **Stop the watcher**
+   ```bash
+   clodputer watch --stop
+   ```
+
+These two flows cover the “Daily Email Management” and “Project Assignment Queue” scenarios from the planning archive, demonstrating how cron and file triggers work end-to-end.
+
 ## Tech Stack
 
 - **Python 3.9+**: Orchestration
