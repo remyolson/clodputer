@@ -110,108 +110,108 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ### 1.3 Task Executor (Full Implementation)
 
-- [ ] **Config loader** (`src/clodputer/config.py`)
-  - [ ] Define Pydantic models for TaskConfig
-  - [ ] Load YAML files from `~/.clodputer/tasks/`
-  - [ ] Validate with Pydantic
-  - [ ] Implement environment variable substitution (`{{ env.VAR }}`)
-  - [ ] Handle config errors with clear messages
-  - **Notes**:
+- [x] **Config loader** (`src/clodputer/config.py`)
+  - [x] Define Pydantic models for TaskConfig
+  - [x] Load YAML files from `~/.clodputer/tasks/`
+  - [x] Validate with Pydantic
+  - [x] Implement environment variable substitution (`{{ env.VAR }}`)
+  - [x] Handle config errors with clear messages
+  - **Notes**: Added `validate_all_tasks()` for diagnostics and env substitution with clear `ConfigError` reporting.
 
-- [ ] **Executor improvements** (`src/clodputer/executor.py`)
-  - [ ] Accept task name instead of hardcoded path
-  - [ ] Load config using ConfigLoader
-  - [ ] Build Claude Code command with all flags (tools, permissions)
-  - [ ] Add timeout support from config
-  - [ ] Parse JSON output from Claude Code
-  - [ ] Handle execution errors
-  - **Notes**:
+- [x] **Executor improvements** (`src/clodputer/executor.py`)
+  - [x] Accept task name instead of hardcoded path
+  - [x] Load config using ConfigLoader
+  - [x] Build Claude Code command with all flags (tools, permissions)
+  - [x] Add timeout support from config
+  - [x] Parse JSON output from Claude Code
+  - [x] Handle execution errors
+  - **Notes**: `TaskExecutor` now processes queue items, parses fenced JSON, and distinguishes success/timeout/failure while emitting structured logs.
 
-- [ ] **Integration with queue**
-  - [ ] Executor pulls tasks from queue
-  - [ ] Updates queue state (running → completed/failed)
-  - [ ] Logs all state transitions
-  - **Notes**:
+- [x] **Integration with queue**
+  - [x] Executor pulls tasks from queue
+  - [x] Updates queue state (running → completed/failed)
+  - [x] Logs all state transitions
+  - **Notes**: Uses `QueueManager` for state transitions and records config/disabled failures via `record_failure`.
 
-- [ ] **Add `doctor` diagnostic** (incremental)
-  - [ ] Validate all task YAML files
-  - [ ] Check Pydantic validation passes
-  - [ ] List tasks with validation errors
-  - **Notes**:
+- [x] **Add `doctor` diagnostic** (incremental)
+  - [x] Validate all task YAML files
+  - [x] Check Pydantic validation passes
+  - [x] List tasks with validation errors
+  - **Notes**: `clodputer doctor` surfaces config errors, lockfile state, and queue validation issues.
 
 ### 1.4 Logging System
 
-- [ ] **Implement StructuredLogger** (`src/clodputer/logger.py`)
-  - [ ] Log events as JSON lines
-  - [ ] Support event types: task_started, task_completed, task_failed
-  - [ ] Include timestamp, task_name, duration, status
-  - [ ] Write to `~/.clodputer/execution.log`
-  - **Notes**:
+- [x] **Implement StructuredLogger** (`src/clodputer/logger.py`)
+  - [x] Log events as JSON lines
+  - [x] Support event types: task_started, task_completed, task_failed
+  - [x] Include timestamp, task_name, duration, status
+  - [x] Write to `~/.clodputer/execution.log`
+  - **Notes**: Rotation kicks in at 10 MB and archives to `~/.clodputer/archive/YYYY-MM.log`.
 
-- [ ] **Log formatting for CLI**
-  - [ ] Parse JSON log entries
-  - [ ] Format as human-readable output
-  - [ ] Color coding (✅ success, ❌ failure)
-  - [ ] Support filtering by date/task
-  - **Notes**:
+- [x] **Log formatting for CLI**
+  - [x] Parse JSON log entries
+  - [x] Format as human-readable output
+  - [x] Color coding (✅ success, ❌ failure)
+  - [x] Support filtering by date/task
+  - **Notes**: `clodputer logs` tail/follow output with task filters; `status` summarises recent history and daily stats.
 
-- [ ] **Log rotation**
-  - [ ] Detect when log exceeds 10 MB
-  - [ ] Archive to `~/.clodputer/archive/YYYY-MM.log`
-  - [ ] Create fresh log file
+- [x] **Log rotation**
+  - [x] Detect when log exceeds 10 MB
+  - [x] Archive to `~/.clodputer/archive/YYYY-MM.log`
+  - [x] Create fresh log file
   - [ ] Keep archives for 6 months
-  - **Notes**:
+  - **Notes**: Archive retention trimming deferred; rotation and archive naming implemented.
 
 ### 1.5 CLI Interface
 
-- [ ] **CLI framework setup** (`src/clodputer/cli.py`)
-  - [ ] Use Click for command structure
-  - [ ] Define main `clodputer` group
-  - [ ] Add `--version` flag
-  - [ ] Add `--help` documentation
-  - **Notes**:
+- [x] **CLI framework setup** (`src/clodputer/cli.py`)
+  - [x] Use Click for command structure
+  - [x] Define main `clodputer` group
+  - [x] Add `--version` flag
+  - [x] Add `--help` documentation
+  - **Notes**: `clodputer` entry point wired via pyproject scripts.
 
-- [ ] **Implement `clodputer status`**
-  - [ ] Show queue state (running/queued counts)
-  - [ ] Show current running task with elapsed time
-  - [ ] Show last 10 executions from log
-  - [ ] Show stats for today (success/fail counts)
-  - **Notes**:
+- [x] **Implement `clodputer status`**
+  - [x] Show queue state (running/queued counts)
+  - [x] Show current running task with elapsed time
+  - [x] Show last 10 executions from log
+  - [x] Show stats for today (success/fail counts)
+  - **Notes**: Handles empty history gracefully; leverages structured log reader.
 
-- [ ] **Implement `clodputer logs`**
-  - [ ] Display formatted log entries
-  - [ ] Support `--tail` for last N entries
-  - [ ] Support `--follow` for live updates
-  - [ ] Support `--task <name>` for filtering
-  - **Notes**:
+- [x] **Implement `clodputer logs`**
+  - [x] Display formatted log entries
+  - [x] Support `--tail` for last N entries
+  - [x] Support `--follow` for live updates
+  - [x] Support `--task <name>` for filtering
+  - **Notes**: Basic follow loop with JSON parsing and task filtering.
 
-- [ ] **Implement `clodputer run <task>`**
-  - [ ] Enqueue task manually
-  - [ ] Support `--priority high` flag
-  - [ ] Show confirmation message
-  - [ ] Display estimated queue position
-  - **Notes**:
+- [x] **Implement `clodputer run <task>`**
+  - [x] Enqueue task manually
+  - [x] Support `--priority high` flag
+  - [x] Show confirmation message
+  - [x] Display estimated queue position
+  - **Notes**: Executes queue immediately unless `--enqueue-only`, reporting outcome.
 
-- [ ] **Implement `clodputer list`**
-  - [ ] List all configured tasks from `~/.clodputer/tasks/`
-  - [ ] Show scheduled tasks with cron schedule
+- [x] **Implement `clodputer list`**
+  - [x] List all configured tasks from `~/.clodputer/tasks/`
+  - [x] Show scheduled tasks with cron schedule
   - [ ] Show file watchers with patterns
-  - [ ] Show manual-only tasks
-  - **Notes**:
+  - [x] Show manual-only tasks
+  - **Notes**: Displays trigger type and schedule; watcher pattern display pending once watcher configs exist.
 
-- [ ] **Implement `clodputer queue`**
-  - [ ] Show detailed queue state
-  - [ ] Show all queued tasks with metadata
-  - [ ] Show running task details
-  - [ ] Support `--clear` to reset queue
-  - **Notes**:
+- [x] **Implement `clodputer queue`**
+  - [x] Show detailed queue state
+  - [x] Show all queued tasks with metadata
+  - [x] Show running task details
+  - [x] Support `--clear` to reset queue
+  - **Notes**: Provides elapsed runtime for active task.
 
-- [ ] **Implement `clodputer doctor`**
-  - [ ] Run all diagnostic checks
-  - [ ] Show ✅/❌ for each check
-  - [ ] Provide actionable suggestions for failures
-  - [ ] Exit with proper status code
-  - **Notes**:
+- [x] **Implement `clodputer doctor`**
+  - [x] Run all diagnostic checks
+  - [x] Show ✅/❌ for each check
+  - [x] Provide actionable suggestions for failures
+  - [x] Exit with proper status code
+  - **Notes**: Checks tasks directory, lockfile, queue integrity, config validation, and log readability.
 
 ### 1.6 Testing & Validation
 

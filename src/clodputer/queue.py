@@ -167,9 +167,7 @@ class QueueManager:
                 existing_pid = -1
 
             if existing_pid > 0 and psutil.pid_exists(existing_pid):
-                raise LockAcquisitionError(
-                    f"Clodputer queue already locked by PID {existing_pid}"
-                )
+                raise LockAcquisitionError(f"Clodputer queue already locked by PID {existing_pid}")
 
             logger.warning("Removing stale lock file at %s", self.lock_file)
             self.lock_file.unlink(missing_ok=True)
@@ -281,6 +279,16 @@ class QueueManager:
         self._persist_state()
         logger.info("Cancelled queued task %s (%s)", item.name, item.id)
         return True
+
+    def record_failure(self, item: QueueItem, error: Dict[str, Any]) -> None:
+        entry = {
+            "id": item.id,
+            "name": item.name,
+            "failed_at": _timestamp(),
+            "error": error,
+        }
+        self._state.failed.append(entry)
+        self._persist_state()
 
     def clear_queue(self) -> None:
         self._state.queued.clear()
