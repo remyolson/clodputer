@@ -5,8 +5,7 @@ class Clodputer < Formula
 
   desc "Autonomous Claude Code automation system"
   homepage "https://github.com/remyolson/clodputer"
-  url "https://github.com/remyolson/clodputer/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "e42e0a8b8cea9909abd10599a4e8a9446a3317458e522192f828e959fd60c0ee"
+  url "https://github.com/remyolson/clodputer.git", tag: "v0.1.0"
   license "MIT"
   head "https://github.com/remyolson/clodputer.git", branch: "main"
 
