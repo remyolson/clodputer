@@ -16,6 +16,7 @@ This guide walks you from a clean install to running your first task in under 10
 - macOS 13+ (Ventura or newer)
 - Python 3.9 or later - verify with `python3 --version`
 - Claude Code CLI installed and authenticated - verify with `which claude`
+- pipx (installed in next section if you don't have it)
 - Internet access for package installs and task execution
 
 **Optional:**
@@ -29,26 +30,37 @@ This guide walks you from a clean install to running your first task in under 10
 
 ## 2. Install Clodputer
 
-Pick the method that fits your workflow:
+**Using pipx (Recommended):**
 
 ```bash
-# PyPI
-python3 -m pip install clodputer
+# Install pipx if you don't have it
+brew install pipx
+pipx ensurepath
 
-# —OR— Homebrew tap
-brew tap remyolson/clodputer https://github.com/remyolson/clodputer.git
-brew install clodputer
+# Install clodputer from PyPI
+pipx install clodputer
+
+# Verify installation
+clodputer --version
 ```
 
-Working from source? Clone the repo, create a virtual environment, and run:
+**Why pipx?**
+- Automatic virtualenv isolation (no dependency conflicts)
+- Designed specifically for Python CLI applications
+- Easy upgrades: `pipx upgrade clodputer`
+- Works on macOS, Linux, and Windows
+- No need for Xcode Command Line Tools
+
+**Working from source for development?**
+
+Clone the repo, create a virtual environment, and run:
 
 ```bash
+git clone https://github.com/remyolson/clodputer.git
+cd clodputer
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
-```
-
-Verify the CLI is reachable:
-
-```bash
 clodputer --version
 ```
 
