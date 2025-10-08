@@ -1,0 +1,43 @@
+name: calendar-sync
+description: Sync upcoming calendar events into a Notion project dashboard.
+enabled: true
+priority: normal
+
+schedule:
+  type: cron
+  expression: "*/30 6-22 * * MON-FRI"
+  timezone: America/Los_Angeles
+
+task:
+  prompt: |
+    Use the Google Calendar MCP to fetch events for the next 48 hours for
+    {{ context.calendar_email }}. For each event:
+      - Create or update a Notion task in the project database defined by
+        {{ context.notion_database_id }}.
+      - Include the start/end time, joining link, participants, and agenda notes.
+      - For meetings marked "External", set the task priority to "High".
+
+    Output JSON:
+    {
+      "task": "calendar-sync",
+      "status": "ok",
+      "events_processed": <int>,
+      "notion_tasks_updated": [<uuid>]
+    }
+  allowed_tools:
+    - Read
+    - Write
+    - mcp__google-calendar
+    - mcp__notion
+  context:
+    calendar_email: user@example.com
+    notion_database_id: "{{ secrets.NOTION_CALENDAR_DB }}"
+  timeout: 600
+
+on_success:
+  - log: "calendar-sync updated {{ result.events_processed | default(0) }} events"
+  - notify: false
+
+on_failure:
+  - log: "calendar-sync failed: {{error}}"
+  - notify: true

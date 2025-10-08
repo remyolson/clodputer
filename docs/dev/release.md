@@ -29,10 +29,10 @@ git push origin vX.Y.Z
 - Body: Copy the corresponding entry from `CHANGELOG.md`.
 - Attach any release assets (optional).
 
-## 5. Distribution (future)
+## 5. Distribution
 
-- Publish to PyPI or Homebrew once packaging is ready.
-- Update installation instructions to reflect new distribution channels.
+- Follow [docs/dev/packaging.md](packaging.md) to publish artefacts to PyPI and update the Homebrew tap.
+- Update installation instructions in the README once artefacts are live.
 
 ## 6. Post-Release
 

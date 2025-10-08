@@ -109,8 +109,10 @@ Additional keys can be added in future releases.
 Ready-made examples live in [`templates/`](../../templates/):
 
 - `daily-email.yaml`: Morning email digest.
+- `calendar-sync.yaml`: Sync Google Calendar events into Notion.
+- `todo-triage.yaml`: Prioritise tasks whenever `inbox.md` changes.
 - `file-watcher.yaml`: Project folder watcher.
-- `manual-task.yaml`: Manual/infrequent tasks.
+- `manual-task.yaml`: Manual or infrequent tasks.
 
 Copy and customise them to speed up onboarding.
 
@@ -119,7 +121,8 @@ Copy and customise them to speed up onboarding.
 - Keep prompts single-turn, deterministic, and idempotent.
 - Use high priority sparingly; all tasks run sequentially.
 - Validate with `clodputer doctor` after editing configs.
-- Store secrets in environment variables; never commit credentials.
+- Store secrets in environment variables; never commit credentials. See
+  [MCP authentication best practices](mcp-authentication.md) for guidance.
 - Archive or disable tasks instead of deleting so history remains consistent.
 
 ## Global Settings (`~/.clodputer/config.yaml`)

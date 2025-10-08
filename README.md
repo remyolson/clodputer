@@ -49,7 +49,7 @@ See [docs/planning](docs/planning/) for complete technical specifications and de
 ## Documentation
 
 - User docs: [docs/user/](docs/user/) – installation, quick start, configuration, troubleshooting.
-- Developer docs: [docs/dev/](docs/dev/) – architecture, testing, contribution, release checklist.
+- Developer docs: [docs/dev/](docs/dev/) – architecture, testing, packaging, release checklist.
 - Planning archive: [docs/planning/](docs/planning/) – A+ grade specifications.
 
 ## Engineer Review
@@ -84,19 +84,38 @@ open docs/implementation/PROGRESS.md
 
 ## Installation
 
+### PyPI (recommended)
+
+```bash
+python3 -m pip install clodputer
+```
+
+This installs the `clodputer` CLI entry point and all runtime dependencies. To
+override the Claude CLI path:
+
+```bash
+export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
+export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
+```
+
+### Homebrew tap
+
+```bash
+brew tap remyolson/clodputer https://github.com/remyolson/clodputer.git
+brew install clodputer
+```
+
+The tap uses a Python virtualenv to isolate dependencies; upgrades follow the
+standard Homebrew flow (`brew update && brew upgrade clodputer`).
+
+### From source
+
 ```bash
 git clone https://github.com/remyolson/clodputer.git
 cd clodputer
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-```
-
-Export your Claude CLI path if it is not simply `claude`:
-
-```bash
-export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
-export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
 ```
 
 See the [installation guide](docs/user/installation.md) for full details.

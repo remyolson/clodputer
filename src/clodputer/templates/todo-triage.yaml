@@ -1,0 +1,46 @@
+name: todo-triage
+description: Triage inbox tasks into priority buckets whenever the list changes.
+enabled: true
+priority: high
+
+trigger:
+  type: file_watch
+  path: ~/Todos
+  pattern: "inbox.md"
+  event: modified
+  debounce: 2000
+
+task:
+  prompt: |
+    A change was detected in {{ context.inbox_path }}.
+    Parse all Markdown checkboxes and create a triage report with sections:
+      - "Today" (must do today)
+      - "This Week"
+      - "Waiting On"
+      - "Someday"
+    Move completed tasks into {{ context.archive_path }} with a datestamp.
+    Rewrite {{ context.triage_path }} with the prioritised lists.
+
+    Output JSON summary:
+    {
+      "task": "todo-triage",
+      "status": "ok",
+      "today": [...],
+      "backlog": <int>
+    }
+  allowed_tools:
+    - Read
+    - Write
+  context:
+    inbox_path: "{{ metadata.path }}"
+    archive_path: ~/Todos/archive.md
+    triage_path: ~/Todos/triaged.md
+  timeout: 300
+
+on_success:
+  - log: "todo-triage processed {{ result.today | length | default(0) }} urgent items"
+  - notify: false
+
+on_failure:
+  - log: "todo-triage failed: {{error}}"
+  - notify: true

@@ -1,0 +1,35 @@
+name: project-watcher
+description: Process project Markdown files dropped into a folder.
+enabled: true
+priority: normal
+
+trigger:
+  type: file_watch
+  path: ~/Projects/Inbox
+  pattern: "*.md"
+  event: created
+  debounce: 1000
+
+task:
+  prompt: |
+    A new project file has been added at "{{ context.file_path }}".
+    Summarise the tasks inside and output:
+    {
+      "task": "project-watcher",
+      "status": "processed",
+      "file": "{{ context.file_path }}"
+    }
+  allowed_tools:
+    - Read
+    - Write
+  context:
+    file_path: "{{ metadata.path }}"
+  timeout: 600
+
+on_success:
+  - log: "{{name}} processed {{ context.file_path }}"
+  - notify: false
+
+on_failure:
+  - log: "{{name}} failed for {{ context.file_path }}: {{error}}"
+  - notify: true

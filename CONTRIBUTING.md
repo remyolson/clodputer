@@ -126,7 +126,7 @@ clodputer/
 │       ├── PROGRESS.md     # Main tracker ⭐
 │       └── README.md
 │
-├── templates/              # Example task configs
+├── templates/              # Symlinks to built-in templates (for browsing)
 │   └── (create example YAMLs here)
 │
 ├── pyproject.toml          # Project configuration
@@ -193,6 +193,11 @@ ruff src/ tests/
 # Type check
 mypy src/
 ```
+
+## 📁 Template Contributions
+
+See [docs/dev/templates.md](docs/dev/templates.md) for the review checklist and
+submission flow when adding new built-in task templates.
 
 ## 📝 Code Style Guidelines
 

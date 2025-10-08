@@ -117,4 +117,6 @@ Run `clodputer doctor` anytime to verify configuration, cron, watcher, and queue
 
 - Dive into the [Configuration Reference](configuration.md) for advanced options.
 - Read the [Troubleshooting Guide](troubleshooting.md) if you hit issues.
-- Browse [templates](../../templates/) for ready-made task definitions.
+- Browse [templates](../../templates/) for ready-made task definitions including the new
+  [`calendar-sync`](../../templates/calendar-sync.yaml) and
+  [`todo-triage`](../../templates/todo-triage.yaml) recipes.

@@ -433,6 +433,25 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
 
 ---
 
+## Phase 6: Distribution & Ecosystem
+
+### 6.1 Packaging
+
+- [x] Publish Homebrew formula (`brew install clodputer`).
+- [x] Package PyPI distribution with console entry points.
+- [x] Provide signed binaries / notarization guidelines.
+- [x] Ensure CI enforces ≥85% coverage and fails on regressions.
+- **Notes**: Added a generated Homebrew formula with pinned resources, documented the release pipeline in `docs/dev/packaging.md`, captured notarisation steps, and enforced the coverage barrier via `--cov-fail-under=85` in pytest.
+
+### 6.2 Template & MCP Ecosystem
+
+- [x] Expand template library (calendar automation, todo triage).
+- [x] Document best practices for MCP authentication (guides + code samples).
+- [x] Provide community-driven template submission process.
+- **Notes**: New packaged templates (`calendar-sync`, `todo-triage`) ship inside the module, user docs cover MCP secret handling, and `docs/dev/templates.md` outlines the review workflow.
+
+---
+
 ## Future Enhancements (Phase 4+)
 
 These are deferred to future releases:

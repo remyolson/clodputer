@@ -35,15 +35,17 @@ This document charts the next wave of improvements, using the original planning 
 ## Phase 6: Distribution & Ecosystem
 
 ### 6.1 Packaging (ref. planning/08-installation-and-integration.md “Installation Process”)
-- [ ] Publish Homebrew formula (`brew install clodputer`).
-- [ ] Package PyPI distribution with console entry points.
-- [ ] Provide signed binaries / notarization guidelines.
-- [ ] Ensure CI enforces ≥85% coverage and fails on regressions.
+- [x] Publish Homebrew formula (`brew install clodputer`).
+- [x] Package PyPI distribution with console entry points.
+- [x] Provide signed binaries / notarization guidelines.
+- [x] Ensure CI enforces ≥85% coverage and fails on regressions.
+- **Notes**: Added `packaging/homebrew/Formula/clodputer.rb` plus the generator script, documented release steps in `docs/dev/packaging.md`, codified notarisation flow, and enforced the coverage gate via `--cov-fail-under=85`.
 
 ### 6.2 Template & MCP Ecosystem (ref. planning/SUMMARY.md “Use Cases”)
-- [ ] Expand template library (calendar automation, todo triage).
-- [ ] Document best practices for MCP authentication (guides + code samples).
-- [ ] Provide community-driven template submission process.
+- [x] Expand template library (calendar automation, todo triage).
+- [x] Document best practices for MCP authentication (guides + code samples).
+- [x] Provide community-driven template submission process.
+- **Notes**: Packaged templates now live under `src/clodputer/templates/` with symlinked browsing copies, new `calendar-sync` and `todo-triage` recipes, MCP auth guidance for secrets, and a contributor workflow in `docs/dev/templates.md`.
 
 ## Tracking & Metrics
 
