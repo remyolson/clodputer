@@ -108,7 +108,7 @@ See the [installation guide](docs/user/installation.md) for full details.
 | `clodputer run <task>` | Enqueue (and optionally execute) a task. |
 | `clodputer list` | List configured tasks and their triggers. |
 | `clodputer status` | Show queue state and recent executions. |
-| `clodputer logs` | Tail formatted execution logs. |
+| `clodputer logs` | Tail execution logs (`--json` for raw events). |
 | `clodputer queue` | Inspect or clear the task queue. |
 | `clodputer install` | Install cron jobs for scheduled tasks. |
 | `clodputer uninstall` | Remove Clodputer-managed cron jobs. |

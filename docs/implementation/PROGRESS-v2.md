@@ -19,9 +19,10 @@ This document charts the next wave of improvements, using the original planning 
 ## Phase 5: Observability & Dashboard
 
 ### 5.1 Structured Log Enhancements (ref. planning/05-finalized-specification.md “Logging System”)
-- [ ] Introduce log rotation policy retention (6 months) with CLI pruning.
-- [ ] Add contextual metadata (exit codes, MCP usage metrics) to JSON events.
-- [ ] Build `clodputer logs --json` for raw machine-readable output.
+- [x] Introduce log rotation policy retention (6 months) with CLI pruning.
+- [x] Add contextual metadata (exit codes, MCP usage metrics) to JSON events.
+- [x] Build `clodputer logs --json` for raw machine-readable output.
+- **Notes**: Logger now records return codes, parse errors, and prunes archives to the 6 most recent files. `clodputer logs --json` exposes the structured stream for dashboards/scripting.
 
 ### 5.2 Terminal Dashboard (ref. planning/07-menu-bar-ui.md & 10-implementation-details.md)
 - [ ] Implement curses-based dashboard showing live queue/logs/resources.

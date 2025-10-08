@@ -274,6 +274,12 @@ class TaskExecutor:
             stdout, stderr = process.communicate()
             return_code = process.returncode
             cleanup_report = cleanup_process_tree(process.pid)
+            timeout_payload = {
+                "error": "timeout",
+                "return_code": return_code,
+                "stdout": stdout or None,
+                "stderr": stderr or None,
+            }
             result = ExecutionResult(
                 task_id=queue_item.id,
                 task_name=config.name,
@@ -288,10 +294,8 @@ class TaskExecutor:
                 error="timeout",
             )
             if update_queue and self.queue_manager:
-                self.queue_manager.mark_failed(queue_item.id, {"error": "timeout"})
-            self.execution_logger.task_failed(
-                queue_item.id, config.name, {"error": "timeout"}, metadata
-            )
+                self.queue_manager.mark_failed(queue_item.id, timeout_payload)
+            self.execution_logger.task_failed(queue_item.id, config.name, timeout_payload, metadata)
             return result
         finally:
             cleanup_report = cleanup_report or cleanup_process_tree(process.pid)
@@ -326,43 +330,57 @@ class TaskExecutor:
 
         if update_queue and self.queue_manager:
             if status == "success":
+                success_payload = {
+                    "duration": duration,
+                    "result": parsed_json,
+                    "return_code": return_code,
+                    "stdout": stdout if parse_error else None,
+                    "parse_error": parse_error,
+                }
                 self.queue_manager.mark_completed(
                     queue_item.id,
-                    {
-                        "duration": duration,
-                        "result": parsed_json,
-                        "stdout": stdout if parse_error else None,
-                    },
+                    success_payload,
                 )
             else:
+                failure_payload = {
+                    "error": error_info or "unknown",
+                    "stderr": stderr or None,
+                    "stdout": stdout or None,
+                    "return_code": return_code,
+                    "parse_error": parse_error,
+                }
                 self.queue_manager.mark_failed(
                     queue_item.id,
-                    {
-                        "error": error_info or "unknown",
-                        "stderr": stderr,
-                        "stdout": stdout,
-                    },
+                    failure_payload,
                 )
 
         if status == "success":
+            success_payload = {
+                "duration": duration,
+                "result": parsed_json,
+                "return_code": return_code,
+                "parse_error": parse_error,
+            }
+            if parse_error:
+                success_payload["stdout"] = stdout
             self.execution_logger.task_completed(
                 queue_item.id,
                 config.name,
-                {
-                    "duration": duration,
-                    "result": parsed_json,
-                },
+                success_payload,
                 metadata,
             )
         else:
+            failure_payload = {
+                "error": error_info or "unknown",
+                "stderr": stderr or None,
+                "stdout": stdout or None,
+                "return_code": return_code,
+                "parse_error": parse_error,
+            }
             self.execution_logger.task_failed(
                 queue_item.id,
                 config.name,
-                {
-                    "error": error_info or "unknown",
-                    "stderr": stderr,
-                    "stdout": stdout,
-                },
+                failure_payload,
                 metadata,
             )
 

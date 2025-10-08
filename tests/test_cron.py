@@ -77,3 +77,56 @@ def test_is_cron_daemon_running(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(cron.psutil, "process_iter", lambda attrs: [FakeProc("cron")])
     assert cron.is_cron_daemon_running()
+
+
+def test_format_command_includes_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLODPUTER_CLAUDE_BIN", "/usr/bin/claude")
+    monkeypatch.setenv("CLODPUTER_EXTRA_ARGS", "--foo bar")
+    cmd = cron._format_command(make_scheduled_task())
+    assert "CLODPUTER_CLAUDE_BIN=/usr/bin/claude" in cmd
+    assert "--foo" in cmd
+
+
+def test_uninstall_cron_jobs(monkeypatch: pytest.MonkeyPatch) -> None:
+    content = f"{cron.CRON_SECTION_BEGIN}\n* * * * * echo hi\n{cron.CRON_SECTION_END}\n"
+    monkeypatch.setattr(cron, "_call_crontab", lambda args, input_text=None: subprocess.CompletedProcess(args, 0, "", ""))
+
+    calls: List[str] = []
+
+    def fake_read():
+        return content
+
+    def fake_call(args, input_text=None):
+        if args == ["-l"]:
+            return subprocess.CompletedProcess(args, 0, content, "")
+        if args == ["-"]:
+            calls.append(input_text or "")
+            return subprocess.CompletedProcess(args, 0, "", "")
+        raise AssertionError
+
+    monkeypatch.setattr(cron, "_call_crontab", fake_call)
+    monkeypatch.setattr(cron, "read_crontab", fake_read)
+
+    result = cron.uninstall_cron_jobs()
+    assert result["removed"]
+    assert calls and cron.CRON_SECTION_BEGIN not in calls[0]
+
+
+def test_uninstall_cron_jobs_no_section(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cron, "read_crontab", lambda: "# no clodputer jobs")
+    result = cron.uninstall_cron_jobs()
+    assert not result["removed"]
+
+
+def test_scheduled_tasks_filters(monkeypatch: pytest.MonkeyPatch) -> None:
+    scheduled = make_scheduled_task("has-schedule")
+    disabled = make_scheduled_task("disabled")
+    disabled.enabled = False
+    manual = TaskConfig.model_validate(
+        {
+            "name": "manual",
+            "task": {"prompt": "hi", "allowed_tools": ["Read"]},
+        }
+    )
+    tasks = cron.scheduled_tasks([scheduled, disabled, manual])
+    assert [task.name for task in tasks] == ["has-schedule"]

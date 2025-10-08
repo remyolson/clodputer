@@ -16,7 +16,6 @@ Commands included:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
@@ -26,6 +25,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 import click
+import json
 
 from .config import ConfigError, ensure_tasks_dir, load_task_by_name, validate_all_tasks
 from .cron import (
@@ -162,7 +162,8 @@ def run(task_name: str, priority: str, enqueue_only: bool) -> None:
 )
 @click.option("--task", "task_filter", help="Filter logs to a specific task name.")
 @click.option("--follow", is_flag=True, help="Follow log output (like tail -f).")
-def logs(tail: int, task_filter: Optional[str], follow: bool) -> None:
+@click.option("--json", "json_output", is_flag=True, help="Output raw JSON events.")
+def logs(tail: int, task_filter: Optional[str], follow: bool, json_output: bool) -> None:
     """Display structured execution logs."""
     if not LOG_FILE.exists():
         click.echo("No log entries yet.")
@@ -173,14 +174,39 @@ def logs(tail: int, task_filter: Optional[str], follow: bool) -> None:
             task_name = event.get("task_name")
             if task_filter and task_name != task_filter:
                 continue
+            if json_output:
+                click.echo(json.dumps(event))
+                continue
             ts = event.get("timestamp", "unknown")
             if event.get("event") == "task_completed":
                 duration = event.get("result", {}).get("duration")
                 duration_str = _format_duration(duration) if duration else "-"
-                click.echo(f"{ts} ✅ {task_name} duration={duration_str}")
+                return_code = event.get("result", {}).get("return_code")
+                parse_error = event.get("result", {}).get("parse_error")
+                extras = []
+                if return_code is not None:
+                    extras.append(f"code={return_code}")
+                if parse_error:
+                    extras.append(f"parse_error={parse_error}")
+                extra_text = f" {' '.join(extras)}" if extras else ""
+                click.echo(f"{ts} ✅ {task_name} duration={duration_str}{extra_text}")
             elif event.get("event") == "task_failed":
-                err = event.get("error", {}).get("error") or "unknown"
-                click.echo(f"{ts} ❌ {task_name} error={err}")
+                error_payload = event.get("error", {})
+                if isinstance(error_payload, dict):
+                    err = error_payload.get("error") or "unknown"
+                    return_code = error_payload.get("return_code")
+                    parse_error = error_payload.get("parse_error")
+                else:
+                    err = error_payload or "unknown"
+                    return_code = None
+                    parse_error = None
+                extras = []
+                if return_code is not None:
+                    extras.append(f"code={return_code}")
+                if parse_error:
+                    extras.append(f"parse_error={parse_error}")
+                extra_text = f" {' '.join(extras)}" if extras else ""
+                click.echo(f"{ts} ❌ {task_name} error={err}{extra_text}")
             elif event.get("event") == "task_started":
                 click.echo(f"{ts} ▶️  {task_name}")
             else:

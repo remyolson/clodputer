@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from clodputer.config import ConfigError, TaskConfig, load_task_config, validate_all_tasks
+from clodputer.config import (
+    ConfigError,
+    TaskConfig,
+    load_all_tasks,
+    load_task_config,
+    list_task_names,
+    validate_all_tasks,
+)
 
 
 def _write_config(path: Path, content: str) -> None:
@@ -118,3 +125,49 @@ task:
     assert len(configs) == 1
     assert configs[0].name == "valid"
     assert errors and "task.prompt" in errors[0][1]
+
+
+def test_list_task_names(tmp_path: Path) -> None:
+    _write_config(
+        tmp_path / "one.yaml",
+        """
+name: one
+task:
+  prompt: ok
+  allowed_tools: ["Read"]
+        """,
+    )
+    _write_config(
+        tmp_path / "two.yaml",
+        """
+name: two
+task:
+  prompt: ok
+  allowed_tools: ["Read"]
+        """,
+    )
+    names = list_task_names(tmp_path)
+    assert names == ["one", "two"]
+
+
+def test_load_all_tasks_reports_errors(tmp_path: Path) -> None:
+    _write_config(
+        tmp_path / "good.yaml",
+        """
+name: good
+task:
+  prompt: ok
+  allowed_tools: ["Read"]
+        """,
+    )
+    _write_config(
+        tmp_path / "bad.yaml",
+        """
+name: bad
+task:
+  allowed_tools: ["Read"]
+        """,
+    )
+    with pytest.raises(ConfigError) as exc:
+        load_all_tasks(tmp_path)
+    assert "bad" in str(exc.value)

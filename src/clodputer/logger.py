@@ -20,6 +20,7 @@ LOG_DIR = Path.home() / ".clodputer"
 LOG_FILE = LOG_DIR / "execution.log"
 ARCHIVE_DIR = LOG_DIR / "archive"
 MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB
+ARCHIVE_RETAIN_COUNT = 6
 
 
 def _timestamp() -> str:
@@ -42,6 +43,18 @@ def _rotate_logs_if_needed() -> None:
     if destination.exists():
         destination = ARCHIVE_DIR / f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H%M%S')}.log"
     LOG_FILE.replace(destination)
+    _prune_archives()
+
+
+def _prune_archives(retain: int = ARCHIVE_RETAIN_COUNT) -> None:
+    if not ARCHIVE_DIR.exists():
+        return
+    archives = sorted(ARCHIVE_DIR.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for stale in archives[retain:]:
+        try:
+            stale.unlink()
+        except OSError:
+            continue
 
 
 def _write_json_line(record: Dict[str, Any]) -> None:
@@ -62,6 +75,10 @@ class StructuredLogger:
         if self.hostname:
             record["host"] = self.hostname
         return record
+
+    @staticmethod
+    def _clean_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: v for k, v in payload.items() if v is not None}
 
     def task_started(self, task_id: str, task_name: str, metadata: Dict[str, Any]) -> None:
         record = self._base_record("task_started")
@@ -86,7 +103,7 @@ class StructuredLogger:
             {
                 "task_id": task_id,
                 "task_name": task_name,
-                "result": result,
+                "result": self._clean_payload(result),
                 "metadata": metadata,
             }
         )
@@ -104,7 +121,7 @@ class StructuredLogger:
             {
                 "task_id": task_id,
                 "task_name": task_name,
-                "error": error,
+                "error": self._clean_payload(error),
                 "metadata": metadata,
             }
         )

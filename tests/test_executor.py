@@ -6,7 +6,15 @@ import subprocess
 
 from clodputer.cleanup import CleanupReport
 from clodputer.config import ConfigError, TaskConfig
-from clodputer.executor import NullExecutionLogger, TaskExecutor, _extract_json, build_command
+from clodputer.executor import (
+    ExecutionResult,
+    NullExecutionLogger,
+    TaskExecutor,
+    TaskExecutionError,
+    _extract_json,
+    build_command,
+    main,
+)
 from clodputer.queue import QueueManager
 
 
@@ -79,6 +87,7 @@ task:
     result = executor.run_config_path(config_path)
     assert result.status == "success"
     assert result.output_json == {"ok": True}
+    assert result.return_code == 0
 
 
 def test_process_queue_handles_config_error(monkeypatch, tmp_path: Path) -> None:
@@ -137,6 +146,7 @@ def test_process_queue_success(monkeypatch, tmp_path: Path) -> None:
     assert result.status == "success"
     status = queue.get_status()
     assert status["queued_counts"]["total"] == 0
+    assert status["completed_recent"][-1]["result"]["return_code"] == 0
 
 
 def test_process_queue_json_failure(monkeypatch, tmp_path: Path) -> None:
@@ -175,7 +185,7 @@ def test_process_queue_json_failure(monkeypatch, tmp_path: Path) -> None:
     assert result is not None
     assert result.status == "failure"
     status = queue.get_status()
-    assert status["failed_recent"]
+    assert status["failed_recent"][-1]["error"]["return_code"] == 0
 
 
 def test_run_config_path_timeout(monkeypatch, tmp_path: Path) -> None:
@@ -219,6 +229,7 @@ task:
     executor = TaskExecutor(execution_logger=NullExecutionLogger())
     result = executor.run_config_path(config_path)
     assert result.status == "timeout"
+    assert result.return_code == -9
 
 
 def test_run_config_path_failure(monkeypatch, tmp_path: Path) -> None:
@@ -240,7 +251,7 @@ task:
             self.returncode = 1
 
         def communicate(self, timeout=None):
-            return ("{\"ok\": false}", "error")
+            return ('{"ok": false}', "error")
 
         def kill(self):
             self.returncode = -9
@@ -257,4 +268,123 @@ task:
     executor = TaskExecutor(execution_logger=NullExecutionLogger())
     result = executor.run_config_path(config_path)
     assert result.status == "failure"
+    assert result.return_code == 1
     assert "code 1" in (result.error or "")
+
+
+def test_process_queue_skips_disabled(monkeypatch, tmp_path: Path) -> None:
+    disabled = make_task_config()
+    disabled.enabled = False
+
+    queue_file = tmp_path / "queue.json"
+    lock_file = tmp_path / "queue.lock"
+    with QueueManager(queue_file=queue_file, lock_file=lock_file) as queue:
+        queue.enqueue("disabled-task")
+
+    queue = QueueManager(queue_file=queue_file, lock_file=lock_file, auto_lock=False)
+    monkeypatch.setattr("clodputer.executor.load_task_by_name", lambda name: disabled)
+    executor = TaskExecutor(queue_manager=queue, execution_logger=NullExecutionLogger())
+    outcome = executor.process_queue_once()
+    assert outcome is None
+    failure = queue.get_status()["failed_recent"][0]["error"]
+    assert failure["error"] == "task_disabled"
+
+
+def test_run_task_by_name_success(monkeypatch) -> None:
+    config = make_task_config()
+
+    class FakeProcess:
+        def __init__(self) -> None:
+            self.pid = 999
+            self.returncode = 0
+
+        def communicate(self, timeout=None):
+            return ('{"ok": true}', "")
+
+        def kill(self):
+            self.returncode = -9
+
+    monkeypatch.setattr("clodputer.executor.load_task_by_name", lambda name: config)
+    monkeypatch.setattr("clodputer.executor.subprocess.Popen", lambda *a, **k: FakeProcess())
+    monkeypatch.setattr(
+        "clodputer.executor.cleanup_process_tree",
+        lambda pid: CleanupReport([], [], []),
+    )
+
+    executor = TaskExecutor(execution_logger=NullExecutionLogger())
+    result = executor.run_task_by_name("sample")
+    assert result.status == "success"
+    assert result.return_code == 0
+
+
+def test_executor_main_queue_success(monkeypatch) -> None:
+    class DummyQueue:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    success_result = ExecutionResult(
+        task_id="1",
+        task_name="sample",
+        status="success",
+        return_code=0,
+        duration=0.1,
+        stdout="",
+        stderr="",
+        cleanup=CleanupReport([], [], []),
+        output_json={},
+        output_parse_error=None,
+        error=None,
+    )
+
+    monkeypatch.setattr("clodputer.executor.QueueManager", lambda: DummyQueue())
+    monkeypatch.setattr(
+        TaskExecutor,
+        "process_queue",
+        lambda self: [success_result],
+    )
+
+    assert main(["--queue"]) == 0
+
+
+def test_executor_main_queue_failure(monkeypatch) -> None:
+    class DummyQueue:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    failure_result = ExecutionResult(
+        task_id="1",
+        task_name="sample",
+        status="failure",
+        return_code=1,
+        duration=0.1,
+        stdout="",
+        stderr="err",
+        cleanup=CleanupReport([], [], []),
+        output_json=None,
+        output_parse_error=None,
+        error="boom",
+    )
+
+    monkeypatch.setattr("clodputer.executor.QueueManager", lambda: DummyQueue())
+    monkeypatch.setattr(
+        TaskExecutor,
+        "process_queue",
+        lambda self: [failure_result],
+    )
+
+    assert main(["--queue"]) == 1
+
+
+def test_executor_main_handles_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        TaskExecutor,
+        "run_task_by_name",
+        lambda self, name: (_ for _ in ()).throw(TaskExecutionError("boom")),
+    )
+    assert main(["--task", "sample"]) == 1
