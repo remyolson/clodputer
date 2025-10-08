@@ -17,6 +17,16 @@ from typing import List, Optional, Sequence
 import click
 
 from .config import TASKS_DIR, TaskConfig, ensure_tasks_dir, validate_all_tasks
+from .formatting import (
+    print_completion_header,
+    print_dim,
+    print_error,
+    print_info,
+    print_section_title,
+    print_step_header,
+    print_success,
+    print_warning,
+)
 from .cron import (
     CRON_LOG_FILE,
     CronError,
@@ -185,32 +195,42 @@ def run_onboarding(reset: bool = False) -> None:
     removed_paths = _reset_onboarding_state() if reset else []
 
     with OnboardingLogger():
-        click.echo("\n=== Clodputer Onboarding ===")
+        print_section_title("Clodputer Onboarding")
 
         if reset:
             if removed_paths:
-                click.echo("Reset onboarding state:")
+                print_info("Reset onboarding state:")
                 for path in removed_paths:
-                    click.echo(f"  • Cleared {path}")
+                    click.echo(f"    • Cleared {path}")
             else:
-                click.echo("No existing onboarding state found to reset.")
+                print_info("No existing onboarding state found to reset.")
 
+        print_step_header(1, 7, "Directory Setup")
         _ensure_directories()
 
-        click.echo("\nClaude CLI configuration")
+        print_step_header(2, 7, "Claude CLI Configuration")
         selected_path = _choose_claude_cli()
         _verify_claude_cli(selected_path)
         store_claude_cli_path(selected_path)
-        click.echo(f"  ✓ Stored Claude CLI path in {STATE_FILE}")
+        print_success(f"Stored Claude CLI path in {STATE_FILE}")
 
+        print_step_header(3, 7, "Template Installation")
         _offer_template_install()
+
+        print_step_header(4, 7, "CLAUDE.md Integration")
         _offer_claude_md_update()
 
+        print_step_header(5, 7, "Automation Setup")
         configs = _offer_automation()
+
+        print_step_header(6, 7, "Runtime Shortcuts")
         _offer_runtime_shortcuts()
+
+        print_step_header(7, 7, "Smoke Test")
         _offer_smoke_test(configs)
 
-        click.echo("\nSetup complete! Next steps:")
+        print_completion_header()
+        click.echo("\n  Next steps:")
         click.echo("  • Add tasks to ~/.clodputer/tasks/ (try `clodputer template list`).")
         click.echo("  • Run `clodputer run <task>` to execute a task once.")
         click.echo(
@@ -228,10 +248,10 @@ def _ensure_directories() -> None:
     ensure_tasks_dir()
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    click.echo(f"  ✓ Ensured base directory at {QUEUE_DIR}")
-    click.echo(f"  ✓ Ensured tasks directory at {TASKS_DIR}")
-    click.echo(f"  ✓ Ensured logs directory at {LOG_DIR}")
-    click.echo(f"  ✓ Ensured archive directory at {ARCHIVE_DIR}")
+    print_success(f"Ensured base directory at {QUEUE_DIR}")
+    print_success(f"Ensured tasks directory at {TASKS_DIR}")
+    print_success(f"Ensured logs directory at {LOG_DIR}")
+    print_success(f"Ensured archive directory at {ARCHIVE_DIR}")
 
 
 def _onboarding_log_path() -> Path:
@@ -315,7 +335,7 @@ def _choose_claude_cli() -> str:
             ):
                 return candidate
         except (OSError, ValueError) as exc:
-            click.echo(f"  ⚠️ Cannot access {candidate}: {exc}")
+            print_warning(f"Cannot access {candidate}: {exc}")
             candidate = None
 
     while True:
@@ -328,23 +348,22 @@ def _choose_claude_cli() -> str:
         try:
             if Path(path).exists():
                 return path
-            click.echo("  ❌ Path not found. Please try again.")
+            print_error("Path not found. Please try again.")
         except (OSError, ValueError) as exc:
-            click.echo(f"  ❌ Invalid path: {exc}")
-            click.echo("  Please enter a valid file path.")
+            print_error(f"Invalid path: {exc}")
+            click.echo("    Please enter a valid file path.")
 
         candidate = None
 
 
 def _offer_template_install() -> None:
-    click.echo("\nStarter task templates")
     templates = available_templates()
     if not templates:
-        click.echo("  ⚠️ No built-in templates found. Skipping.")
+        print_warning("No built-in templates found. Skipping.")
         return
 
     if not click.confirm("  Copy a starter template into ~/.clodputer/tasks now?", default=True):
-        click.echo("  • Skipped template import.")
+        print_dim("Skipped template import.")
         return
 
     index = _select_from_list(templates, "Select a template number")
@@ -362,15 +381,14 @@ def _offer_template_install() -> None:
 
     if destination.exists():
         if not click.confirm(f"  {destination.name} exists. Overwrite?", default=False):
-            click.echo("  • Skipped template import.")
+            print_dim("Skipped template import.")
             return
 
     written = export_template(chosen_template, destination)
-    click.echo(f"  ✓ Copied template to {written}")
+    print_success(f"Copied template to {written}")
 
 
 def _offer_claude_md_update() -> None:
-    click.echo("\nCLAUDE.md integration")
     candidates = _detect_claude_md_candidates()
 
     claude_md_path: Path | None = None
@@ -381,16 +399,16 @@ def _offer_claude_md_update() -> None:
                 f"  Update CLAUDE.md at {claude_md_path} with Clodputer instructions?",
                 default=True,
             ):
-                click.echo("  • Skipped CLAUDE.md update.")
+                print_dim("Skipped CLAUDE.md update.")
                 return
         else:
-            click.echo("  Found multiple CLAUDE.md candidates:")
+            print_info("Found multiple CLAUDE.md candidates:")
             index = _select_from_list(candidates, "Select the file to update")
             claude_md_path = candidates[index]
     else:
-        click.echo("  ⚠️ CLAUDE.md not found in default locations.")
+        print_warning("CLAUDE.md not found in default locations.")
         if not click.confirm("  Provide a path to create or update CLAUDE.md now?", default=False):
-            click.echo("  • Skipped CLAUDE.md integration.")
+            print_dim("Skipped CLAUDE.md integration.")
             return
         entered = click.prompt("  Enter full path to CLAUDE.md").strip()
         user_path = Path(os.path.expanduser(entered))
@@ -401,13 +419,13 @@ def _offer_claude_md_update() -> None:
             claude_md_path.parent.mkdir(parents=True, exist_ok=True)
             if not claude_md_path.exists():
                 claude_md_path.touch()
-                click.echo(f"  ✓ Created CLAUDE.md at {claude_md_path}")
+                print_success(f"Created CLAUDE.md at {claude_md_path}")
         except click.ClickException:
             # Re-raise click exceptions (from validation)
             raise
 
     if claude_md_path is None:
-        click.echo("  • Skipped CLAUDE.md update.")
+        print_dim("Skipped CLAUDE.md update.")
         return
 
     _apply_claude_md_update(claude_md_path)
@@ -416,14 +434,13 @@ def _offer_claude_md_update() -> None:
 def _load_task_configs() -> tuple[List[TaskConfig], List[tuple[Path, str]]]:
     configs, errors = validate_all_tasks()
     if errors:
-        click.echo("\n⚠️  Some task configs could not be validated:")
+        print_warning("Some task configs could not be validated:")
         for path, err in errors:
-            click.echo(f"  • {path}: {err}")
+            click.echo(f"    • {path}: {err}")
     return configs, errors
 
 
 def _offer_automation(configs: Optional[List[TaskConfig]] = None) -> List[TaskConfig]:
-    click.echo("\nAutomation options")
     task_errors: List[tuple[Path, str]] = []
     if configs is None:
         configs, task_errors = _load_task_configs()
@@ -431,11 +448,11 @@ def _offer_automation(configs: Optional[List[TaskConfig]] = None) -> List[TaskCo
         task_errors = []
 
     if task_errors:
-        click.echo("  ⚠️ Resolve task validation errors before enabling automation.")
+        print_warning("Resolve task validation errors before enabling automation.")
         return configs
 
     if not configs:
-        click.echo("  • No tasks detected yet. Add YAML files to ~/.clodputer/tasks/.")
+        print_info("No tasks detected yet. Add YAML files to ~/.clodputer/tasks/.")
         return configs
 
     _offer_cron_setup(configs)
@@ -444,20 +461,20 @@ def _offer_automation(configs: Optional[List[TaskConfig]] = None) -> List[TaskCo
 
 
 def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
-    click.echo("\nCron scheduling")
+    print_info("Cron scheduling")
     try:
         entries = scheduled_tasks(configs)
     except CronError as exc:
-        click.echo(f"  ❌ Unable to prepare cron entries: {exc}")
+        print_error(f"Unable to prepare cron entries: {exc}")
         return
 
     if not entries:
-        click.echo("  • No enabled cron or interval tasks found.")
+        print_dim("No enabled cron or interval tasks found.")
         return
 
     section = generate_cron_section(entries).strip()
     if section:
-        click.echo("  Proposed cron section:")
+        click.echo("\n  Proposed cron section:")
         for line in section.splitlines():
             click.echo(f"    {line}")
 
@@ -466,7 +483,7 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
         try:
             upcoming = preview_schedule(entry, count=3)
         except CronError as exc:
-            click.echo(f"  ⚠️ Unable to preview schedule for {entry.task.name}: {exc}")
+            print_warning(f"Unable to preview schedule for {entry.task.name}: {exc}")
         else:
             click.echo(f"  • {entry.task.name} -> {entry.expression}")
             if entry.timezone:
@@ -476,21 +493,21 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
             for dt_obj in upcoming:
                 click.echo(f"      - {dt_obj.isoformat()}")
 
-    if not click.confirm("  Install these cron jobs now?", default=False):
-        click.echo("  • Skipped cron installation.")
+    if not click.confirm("\n  Install these cron jobs now?", default=False):
+        print_dim("Skipped cron installation.")
         return
 
-    click.echo("  ⏳ Installing cron jobs...")
+    print_info("Installing cron jobs...")
     try:
         result = install_cron_jobs(entries)
-        click.echo("  ✓ Cron jobs installed successfully")
+        print_success("Cron jobs installed successfully")
     except CronError as exc:
-        click.echo(f"  ❌ Failed to install cron jobs: {exc}")
+        print_error(f"Failed to install cron jobs: {exc}")
         click.echo("     • macOS users: Grant Full Disk Access to Terminal in System Settings")
         click.echo("     • Or install manually later with: clodputer install")
         return
 
-    click.echo(f"  ✓ Installed {result.get('installed', 0)} cron job(s).")
+    print_success(f"Installed {result.get('installed', 0)} cron job(s).")
     backup = result.get("backup")
     if backup:
         click.echo(f"    Backup: {backup}")
@@ -498,10 +515,10 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
 
 
 def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
-    click.echo("\nFile watcher")
+    print_info("File watcher")
     tasks = file_watch_tasks(configs)
     if not tasks:
-        click.echo("  • No tasks with file_watch triggers detected.")
+        print_dim("No tasks with file_watch triggers detected.")
         return
 
     for task in tasks:
@@ -516,51 +533,50 @@ def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
                 try:
                     watch_path.mkdir(parents=True, exist_ok=True)
                 except OSError as exc:
-                    click.echo(f"    ❌ Failed to create {watch_path}: {exc}")
+                    print_error(f"Failed to create {watch_path}: {exc}")
                 else:
-                    click.echo(f"    ✓ Created {watch_path}")
+                    print_success(f"Created {watch_path}")
             else:
-                click.echo("    ⚠️ Directory not created; watcher may not trigger.")
+                print_warning("Directory not created; watcher may not trigger.")
 
     status = watcher_status()
     if status.get("running"):
-        click.echo(
-            f"  ✓ Watcher daemon already running (PID {status.get('pid')}). "
+        print_success(
+            f"Watcher daemon already running (PID {status.get('pid')}). "
             f"Log: {status.get('log_file')}"
         )
         return
 
-    if not click.confirm("  Start the watcher daemon now?", default=False):
-        click.echo("  • Skipped watcher daemon start.")
+    if not click.confirm("\n  Start the watcher daemon now?", default=False):
+        print_dim("Skipped watcher daemon start.")
         return
 
     try:
         pid = start_watch_daemon()
     except WatcherError as exc:
-        click.echo(f"  ❌ Failed to start watcher daemon: {exc}")
+        print_error(f"Failed to start watcher daemon: {exc}")
         click.echo("     • Check that watch paths exist and are readable")
         click.echo("     • Or start manually later with: clodputer watch --daemon")
         return
 
-    click.echo(f"  ✓ Watcher daemon started (PID {pid}). Log: {WATCHER_LOG_FILE}")
+    print_success(f"Watcher daemon started (PID {pid}). Log: {WATCHER_LOG_FILE}")
 
 
 def _offer_runtime_shortcuts() -> None:
-    click.echo("\nRuntime helpers")
-    click.echo("  • Dashboard shows live queue + logs (opens in Terminal).")
+    print_info("Dashboard shows live queue + logs (opens in Terminal).")
 
     if sys.platform == "darwin":
-        click.echo("  • Menu bar adds status + quick actions (requires accessibility permission).")
+        print_info("Menu bar adds status + quick actions (requires accessibility permission).")
         if click.confirm("  Launch the menu bar app now?", default=False):
             _launch_menu_bar_app()
 
         if click.confirm("  Open the dashboard in a new Terminal window?", default=False):
             _launch_dashboard_terminal()
         else:
-            click.echo("  • Run `clodputer dashboard` anytime for a live view.")
+            print_dim("Run `clodputer dashboard` anytime for a live view.")
     else:
-        click.echo("  • Menu bar is only available on macOS.")
-        click.echo("  • Run `clodputer dashboard` anytime for a live view.")
+        print_info("Menu bar is only available on macOS.")
+        print_dim("Run `clodputer dashboard` anytime for a live view.")
 
 
 def _launch_menu_bar_app() -> None:
@@ -573,9 +589,9 @@ def _launch_menu_bar_app() -> None:
             start_new_session=True,
         )
     except OSError as exc:
-        click.echo(f"  ❌ Failed to launch menu bar app: {exc}")
+        print_error(f"Failed to launch menu bar app: {exc}")
     else:
-        click.echo("  ✓ Menu bar launched (look for the Clodputer icon in the macOS menu bar).")
+        print_success("Menu bar launched (look for the Clodputer icon in the macOS menu bar).")
 
 
 def _launch_dashboard_terminal() -> None:
@@ -589,37 +605,36 @@ def _launch_dashboard_terminal() -> None:
             stderr=subprocess.DEVNULL,
         )
     except Exception as exc:
-        click.echo(f"  ❌ Failed to launch dashboard: {exc}")
+        print_error(f"Failed to launch dashboard: {exc}")
     else:
-        click.echo("  ✓ Dashboard opened in a new Terminal window.")
+        print_success("Dashboard opened in a new Terminal window.")
 
 
 def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
-    click.echo("\nSmoke test")
     task_errors: List[tuple[Path, str]] = []
     if configs is None:
         configs, task_errors = _load_task_configs()
     else:
         configs = list(configs)
     if task_errors and not configs:
-        click.echo("  • Skipping smoke test until configuration errors are resolved.")
+        print_dim("Skipping smoke test until configuration errors are resolved.")
         return
 
     enabled_tasks = [task for task in configs if task.enabled]
     if not enabled_tasks:
-        click.echo("  • No enabled tasks available yet.")
+        print_dim("No enabled tasks available yet.")
         return
 
     # Check network connectivity before offering smoke test
     if not _check_network_connectivity():
-        click.echo("  ⚠️ Network connectivity issue detected.")
+        print_warning("Network connectivity issue detected.")
         click.echo("     Tasks may require internet access to complete successfully.")
         if not click.confirm("  Continue with smoke test anyway?", default=False):
-            click.echo("  • Skipped smoke test. Check your network connection and try again.")
+            print_dim("Skipped smoke test. Check your network connection and try again.")
             return
 
     if not click.confirm("  Run a task now to verify end-to-end execution?", default=False):
-        click.echo("  • Skipped smoke test.")
+        print_dim("Skipped smoke test.")
         return
 
     for index, task in enumerate(enabled_tasks, start=1):
@@ -632,12 +647,12 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
     )
     chosen = enabled_tasks[selection - 1]
 
-    click.echo(f"  ⏳ Running task '{chosen.name}'...")
+    print_info(f"Running task '{chosen.name}'...")
     executor = TaskExecutor()
     try:
         result = executor.run_task_by_name(chosen.name)
     except TaskExecutionError as exc:
-        click.echo(f"  ❌ Task execution failed: {exc}")
+        print_error(f"Task execution failed: {exc}")
         cli_path = claude_cli_path(None)
         click.echo("     • Check logs: clodputer logs --tail 20")
         if cli_path:
@@ -645,7 +660,7 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
         click.echo("     • Run diagnostics: clodputer doctor")
         return
     except Exception as exc:  # pragma: no cover - defensive
-        click.echo(f"  ❌ Smoke test errored: {exc}")
+        print_error(f"Smoke test errored: {exc}")
         click.echo("     • Check logs: clodputer logs --tail 20")
         click.echo("     • Run diagnostics: clodputer doctor")
         return
@@ -816,14 +831,14 @@ def _apply_claude_md_update(path: Path) -> None:
 
     # Warn if file is large (>1MB), skip diff if >5MB
     if file_size > CLAUDE_MD_SIZE_SKIP_DIFF_MB * MEGABYTE:
-        click.echo(f"  ⚠️ CLAUDE.md is very large ({file_size // MEGABYTE}MB).")
+        print_warning(f"CLAUDE.md is very large ({file_size // MEGABYTE}MB).")
         click.echo("     Skipping diff preview to avoid memory issues.")
         if not click.confirm("  Add Clodputer guidance without preview?", default=False):
-            click.echo("  • Skipped CLAUDE.md update.")
+            print_dim("Skipped CLAUDE.md update.")
             return
         skip_diff = True
     elif file_size > CLAUDE_MD_SIZE_WARN_MB * MEGABYTE:
-        click.echo(f"  ⚠️ CLAUDE.md is large ({file_size // MEGABYTE}MB). Diff may be slow.")
+        print_warning(f"CLAUDE.md is large ({file_size // MEGABYTE}MB). Diff may be slow.")
         skip_diff = False
     else:
         skip_diff = False
@@ -834,7 +849,7 @@ def _apply_claude_md_update(path: Path) -> None:
         raise click.ClickException(f"Failed to read {path}: {exc}") from exc
 
     if CLAUDE_MD_SENTINEL in current_text:
-        click.echo("  • CLAUDE.md already includes Clodputer guidance.")
+        print_info("CLAUDE.md already includes Clodputer guidance.")
         return
 
     addition = CLAUDE_MD_SECTION.strip() + "\n"
@@ -860,10 +875,10 @@ def _apply_claude_md_update(path: Path) -> None:
 
     if diff is not None:
         if not diff:
-            click.echo("  • No changes required for CLAUDE.md.")
+            print_info("No changes required for CLAUDE.md.")
             return
 
-        click.echo("  Proposed CLAUDE.md update:")
+        click.echo("\n  Proposed CLAUDE.md update:")
         diff_lines = diff.splitlines()
         preview_limit = 80
         for line in diff_lines[:preview_limit]:
@@ -871,8 +886,8 @@ def _apply_claude_md_update(path: Path) -> None:
         if len(diff_lines) > preview_limit:
             click.echo("    ... (diff truncated)")
 
-        if not click.confirm("  Apply this update?", default=True):
-            click.echo("  • Skipped CLAUDE.md update.")
+        if not click.confirm("\n  Apply this update?", default=True):
+            print_dim("Skipped CLAUDE.md update.")
             return
     # If diff is None, we already confirmed above for large files
 
@@ -890,9 +905,9 @@ def _apply_claude_md_update(path: Path) -> None:
         raise click.ClickException(f"Failed to update {path}: {exc}") from exc
 
     if backup_path:
-        click.echo(f"  ✓ Updated CLAUDE.md (backup at {backup_path})")
+        print_success(f"Updated CLAUDE.md (backup at {backup_path})")
     else:
-        click.echo("  ✓ Updated CLAUDE.md")
+        print_success("Updated CLAUDE.md")
 
 
 def _verify_claude_cli(path: str) -> None:
@@ -907,20 +922,20 @@ def _verify_claude_cli(path: str) -> None:
     except FileNotFoundError as exc:
         raise click.ClickException(f"Claude CLI not executable at {path}") from exc
     except subprocess.TimeoutExpired:
-        click.echo(
-            f"  ⚠️ Claude CLI --version timed out after {CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS} seconds."
+        print_warning(
+            f"Claude CLI --version timed out after {CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS} seconds."
         )
         click.echo("     This may indicate an issue with the Claude installation.")
         return
 
     if result.returncode != 0:
-        click.echo("  ⚠️ Unable to confirm Claude CLI version (non-zero exit code).")
+        print_warning("Unable to confirm Claude CLI version (non-zero exit code).")
     else:
         version_line = (result.stdout or result.stderr or "").strip().splitlines()[:1]
         if version_line:
-            click.echo(f"  ✓ Detected Claude CLI: {version_line[0]}")
+            print_success(f"Detected Claude CLI: {version_line[0]}")
         else:
-            click.echo("  ✓ Claude CLI responded to --version.")
+            print_success("Claude CLI responded to --version.")
 
 
 __all__ = ["run_onboarding"]
