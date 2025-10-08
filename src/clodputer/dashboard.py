@@ -170,7 +170,9 @@ class TerminalDashboard:
 
         queue_win = stdscr.derwin(body_height // 2, left_width, body_top, 0)
         resource_win = stdscr.derwin(body_height // 2, right_width, body_top, left_width)
-        logs_win = stdscr.derwin(body_height - body_height // 2, width, body_top + body_height // 2, 0)
+        logs_win = stdscr.derwin(
+            body_height - body_height // 2, width, body_top + body_height // 2, 0
+        )
 
         queue_win.box()
         resource_win.box()
@@ -230,7 +232,11 @@ class TerminalDashboard:
         if load_avg:
             load_text = ", ".join(f"{value:.2f}" for value in load_avg)
             _safe_addstr(window, 3, 2, f"Load average: {load_text}")
-        metrics = self.snapshot.queue_status.get("metrics") if isinstance(self.snapshot.queue_status, dict) else {}
+        metrics = (
+            self.snapshot.queue_status.get("metrics")
+            if isinstance(self.snapshot.queue_status, dict)
+            else {}
+        )
         if isinstance(metrics, dict) and metrics:
             _safe_addstr(window, 5, 2, "Top Tasks:")
             for idx, (name, stats) in enumerate(list(metrics.items())[: window.getmaxyx()[0] - 6]):
@@ -248,7 +254,9 @@ class TerminalDashboard:
     def _draw_footer(self, stdscr: "curses._CursesWindow", height: int, width: int) -> None:
         help_text = " q Quit │ t Task details │ l Log tail │ w Watcher status "
         stdscr.hline(height - 2, 0, ord("-"), width)
-        _safe_addstr(stdscr, height - 1, max(0, (width - len(help_text)) // 2), help_text, curses.A_DIM)
+        _safe_addstr(
+            stdscr, height - 1, max(0, (width - len(help_text)) // 2), help_text, curses.A_DIM
+        )
 
     def _draw_overlay(self, stdscr: "curses._CursesWindow", height: int, width: int) -> None:
         title, lines = self._overlay_content()
