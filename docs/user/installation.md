@@ -30,8 +30,8 @@ After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashr
 ### Step 2: Install Clodputer
 
 ```bash
-# Install from GitHub
-pipx install git+https://github.com/remyolson/clodputer.git
+# Install from PyPI
+pipx install clodputer
 
 # Verify installation
 clodputer --version
@@ -56,16 +56,7 @@ pipx upgrade clodputer
 pipx uninstall clodputer
 ```
 
-## 2. Install from PyPI (Coming Soon)
-
-Once published to PyPI, installation will be even simpler:
-
-```bash
-pipx install clodputer
-clodputer --version
-```
-
-## 3. Install from Source (For Development)
+## 2. Install from Source (For Development)
 
 Clone the repository when hacking on Clodputer itself:
 
@@ -74,7 +65,7 @@ git clone https://github.com/remyolson/clodputer.git
 cd clodputer
 ```
 
-### 3.1 Create a Virtual Environment
+### 2.1 Create a Virtual Environment
 
 ```bash
 python3 -m venv .venv
@@ -83,7 +74,7 @@ source .venv/bin/activate
 
 > The commands in this guide assume an activated virtual environment (`(.venv)` prefix).
 
-### 3.2 Install Clodputer
+### 2.2 Install Clodputer
 
 ```bash
 pip install -e ".[dev]"
@@ -91,7 +82,7 @@ pip install -e ".[dev]"
 
 This installs both runtime and development dependencies (Click, Pydantic, watchdog, rumps, pytest, ruff, etc.).
 
-### 3.3 Verify the CLI and Run Onboarding
+### 2.3 Verify the CLI and Run Onboarding
 
 ```bash
 clodputer --version
@@ -120,7 +111,7 @@ clodputer init        # guided onboarding
 - See [Troubleshooting Guide](troubleshooting.md) if you encounter issues
 - Check `~/.clodputer/onboarding.log` for detailed setup logs
 
-## 4. Create the Tasks Directory (Optional)
+## 3. Create the Tasks Directory (Optional)
 
 `clodputer init` automatically creates `~/.clodputer/tasks`. Only run the following if you need to pre-create folders in automated scripts:
 
@@ -130,7 +121,7 @@ mkdir -p ~/.clodputer/tasks
 
 Placed YAML task definitions acquire the same schema described in the [Configuration Reference](configuration.md).
 
-## 5. Optional: Menu Bar App
+## 4. Optional: Menu Bar App
 
 The menu bar app uses macOS Automation (`osascript`). Grant permission on first launch:
 

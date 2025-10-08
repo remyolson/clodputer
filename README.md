@@ -91,8 +91,8 @@ open docs/implementation/PROGRESS.md
 brew install pipx
 pipx ensurepath
 
-# Install clodputer
-pipx install git+https://github.com/remyolson/clodputer.git
+# Install clodputer from PyPI
+pipx install clodputer
 
 # Verify installation
 clodputer --version
@@ -100,13 +100,7 @@ clodputer --version
 
 **Why pipx?** It automatically handles virtualenv isolation and is designed specifically for Python CLI tools. Works on macOS, Linux, and Windows.
 
-### PyPI (Coming Soon)
-
-Once published, installation will be even simpler:
-
-```bash
-pipx install clodputer
-```
+**Upgrading**: `pipx upgrade clodputer`
 
 ### From Source (For Development)
 
