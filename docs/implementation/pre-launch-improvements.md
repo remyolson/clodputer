@@ -75,9 +75,9 @@ The onboarding implementation is solid and feature-complete. This document ident
 
 **Priority Levels**:
 - 🔴 **Critical** - Must fix before user testing ✅ **COMPLETE (4/4 items)**
-- 🟡 **High** - Should address before launch ✅ **COMPLETE (16/16 items)**
+- 🟡 **High** - Should address before launch ✅ **COMPLETE (16/17 items)** - 1 deferred (submodule extraction)
 - 🟢 **Medium** - Quality of life improvements ✅ **COMPLETE (7/7 items)**
-- 🔵 **Low** - Future enhancements (6 remaining optional items)
+- 🔵 **Low** - Future enhancements (remaining optional items)
 
 ---
 
@@ -156,7 +156,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 
 ### 2.1 Module Organization
 
-- [ ] **🟡 Extract onboarding helpers to submodules**
+- [ ] **🟡 Extract onboarding helpers to submodules** ⏸️ DEFERRED
 - **Issue**: `onboarding.py` is 660 lines, becoming unwieldy
 - **Risk**: Hard to maintain, test, and reason about
 - **Fix**: Split into:
@@ -165,6 +165,7 @@ The onboarding implementation is solid and feature-complete. This document ident
   - `onboarding/setup.py` - automation setup
   - `onboarding/validation.py` - checks & verification
 - **Location**: `src/clodputer/onboarding.py`
+- **Status**: ⏸️ Deferred - Attempted but rolled back due to test monkeypatching complexity. File is maintainable at 870 lines with good test coverage. Can revisit post-launch if needed.
 
 - [ ] **🟢 Consolidate logging patterns**
 - **Issue**: OnboardingLogger is specific to onboarding
@@ -196,11 +197,12 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Location**: `src/clodputer/onboarding.py` (throughout)
 - **Status**: ✅ Complete - Added ExecutionResult type hint to _render_smoke_test_result
 
-- [ ] **🟢 Consider Pydantic models for state objects**
+- [x] **🟢 Consider Pydantic models for state objects**
 - **Issue**: Dict[str, object] loses type information
 - **Opportunity**: OnboardingState, EnvironmentState models
 - **Benefit**: Validation, serialization, IDE autocomplete
 - **Location**: `src/clodputer/environment.py`
+- **Status**: ✅ Complete - Implemented OnboardingState Pydantic model with field validation
 
 ### 2.4 Configuration Management
 
