@@ -62,8 +62,26 @@ clodputer doctor
 clodputer init        # guided onboarding
 ```
 
-- `clodputer doctor` checks base directories, queue integrity, cron/watch status, and the stored Claude CLI path.
-- `clodputer init` launches the guided onboarding flow that sets up directories, templates, automation, smoke tests, and a summary doctor report. Pass `--reset` to clear existing state (`~/.clodputer/env.json`, onboarding log) before re-running.
+**What These Commands Do:**
+
+- `clodputer --version` - Verifies the CLI is installed correctly
+- `clodputer doctor` - Runs diagnostics: checks directories, queue, cron/watch status, and Claude CLI path
+- `clodputer init` - **Interactive setup wizard** that:
+  - Detects and validates your Claude CLI (with timeout protection)
+  - Creates directory structure with automatic backups
+  - Offers template installation
+  - Optionally updates your CLAUDE.md with Clodputer guidance
+  - Sets up automation (cron, file watcher)
+  - Runs a smoke test to verify everything works
+  - Provides diagnostics summary
+
+**Re-running Onboarding:**
+- `clodputer init` - Preserves existing state, allows you to modify settings
+- `clodputer init --reset` - Clears all state and starts completely fresh
+
+**Need Help?**
+- See [Troubleshooting Guide](troubleshooting.md) if you encounter issues
+- Check `~/.clodputer/onboarding.log` for detailed setup logs
 
 ## 4. Create the Tasks Directory (Optional)
 

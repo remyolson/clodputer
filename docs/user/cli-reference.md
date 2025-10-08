@@ -4,7 +4,7 @@ This document summarizes the core `clodputer` commands and the most common optio
 
 | Command | Description | Notable Options |
 |---------|-------------|-----------------|
-| `clodputer init` | Guided onboarding that detects Claude CLI, prepares directories, copies templates, configures automation, runs smoke tests, and logs a transcript. | `--reset` wipes `~/.clodputer/env.json` and `~/.clodputer/onboarding.log` before re-running. |
+| `clodputer init` | **Interactive setup wizard** that: (1) detects & validates Claude CLI with timeout protection, (2) creates directory structure with automatic backups, (3) offers template installation, (4) optionally updates CLAUDE.md, (5) configures automation (cron/watcher), (6) runs smoke test with network check, (7) shows diagnostics summary. All logged to `onboarding.log` with rotation. | `--reset` clears all state (`env.json`, logs) and starts completely fresh. |
 | `clodputer run <task>` | Executes a task once immediately, respecting the stored configuration. | `--priority {normal,high}`, `--enqueue-only` |
 | `clodputer install` | Generates and installs cron entries for scheduled/interval tasks. | `--dry-run` preview the cron section without applying it. |
 | `clodputer uninstall` | Removes the Clodputer-managed cron section. | `--dry-run` prints the current section without modifying the crontab. |
@@ -20,8 +20,11 @@ This document summarizes the core `clodputer` commands and the most common optio
 
 ### Tips
 
-- Most commands rely on the state recorded by `clodputer init` (Claude CLI path, onboarding metadata, template copies). Re-run onboarding any time your environment changes.
-- Use `clodputer init --reset` if you need to redo onboarding from scratch; this removes the saved CLI path and onboarding transcript before starting the wizard.
-- `clodputer doctor` mirrors the summary that onboarding prints at the end of the guided flow. Run it manually whenever you change automation or migrate to a new machine.
+- Most commands rely on state from `clodputer init` (Claude CLI path, directories, templates). Re-run onboarding when your environment changes.
+- Use `clodputer init --reset` to completely restart onboarding from scratch - clears all saved state.
+- `clodputer doctor` runs the same diagnostics shown at the end of onboarding. **Run this first when troubleshooting issues.**
+- All onboarding runs are logged to `~/.clodputer/onboarding.log` (rotates at 10MB, keeps 5 backups).
+- State file (`~/.clodputer/env.json`) has automatic backup/recovery - safe from corruption.
+- Check the **[Troubleshooting Guide](troubleshooting.md)** for common issues and solutions.
 
 For deeper explanations of task configuration, automation, and troubleshooting, see the rest of the [User Guide](README.md#user-documentation).

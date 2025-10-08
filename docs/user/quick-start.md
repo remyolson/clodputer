@@ -1,19 +1,29 @@
 # Quick Start
 
-This guide walks you from a clean install to a running task in a few minutes using the `clodputer init` onboarding flow.
+This guide walks you from a clean install to running your first task in under 10 minutes using the interactive `clodputer init` onboarding flow.
+
+**What to Expect:**
+- ⏱️ **Time**: 5-10 minutes for complete setup
+- 🎯 **Goal**: Get Clodputer configured and run a test task
+- 🛡️ **Safety**: All setup is guided with validation and backups
+- 💡 **Help**: Detailed troubleshooting available at every step
 
 ---
 
 ## 1. Prerequisites
 
+**Required:**
 - macOS 13+ (Ventura or newer)
-- Python 3.9 or later (`python3 --version`)
-- Claude Code CLI installed and authenticated (`which claude`)
-- Internet access for package installs
+- Python 3.9 or later - verify with `python3 --version`
+- Claude Code CLI installed and authenticated - verify with `which claude`
+- Internet access for package installs and task execution
 
-Optional:
+**Optional:**
+- Terminal automation permission (`osascript`) for launching the dashboard/menu bar
 
-- Terminal automation permission (`osascript`) for launching the dashboard/menu bar.
+**Having Issues?**
+- See [Troubleshooting Guide](troubleshooting.md) for detailed help with prerequisites
+- Common issues: Claude CLI not in PATH, Python version mismatch, permission errors
 
 ---
 
@@ -50,38 +60,89 @@ clodputer --version
 clodputer init
 ```
 
-The wizard will:
+The interactive wizard will guide you through setup:
 
-- Detect and validate your Claude CLI installation.
-- Create the full `~/.clodputer` directory structure (tasks, logs, archive).
-- Copy starter templates on request.
-- Offer optional automation setup (cron, file watcher, dashboard/menu launcher).
-- Run a smoke test and display a concise doctor summary.
+**1. Claude CLI Detection**
+- Automatically detects your Claude CLI installation
+- Validates it works (with timeout protection - won't hang)
+- Provides actionable error messages if there are issues
 
-Need to re-run onboarding later? Just execute `clodputer init` again. To wipe the saved state and start fresh, pass `--reset`.
+**2. Directory Structure Setup**
+- Creates `~/.clodputer/` with tasks, logs, and archive directories
+- Sets up state file (`env.json`) with automatic backup/recovery
+- All paths validated for security
 
-Every run is logged to `~/.clodputer/onboarding.log` for future reference.
+**3. Template Installation (Optional)**
+- Browse and select from packaged starter templates
+- Templates are copied to `~/.clodputer/tasks/`
+- Skip if you want to create tasks from scratch
+
+**4. CLAUDE.md Update (Optional)**
+- If you have a `~/CLAUDE.md` file, offers to add Clodputer guidance
+- Shows a diff preview before applying changes
+- Creates timestamped backup automatically
+- **Note**: Large files (>1MB) will skip diff preview for performance
+
+**5. Automation Setup (Optional)**
+- **Cron scheduling**: Set up periodic task execution
+- **File watcher**: Monitor directories for changes and trigger tasks
+- **Runtime shortcuts**: Add quick aliases for dashboard and menu bar
+
+**6. Smoke Test (Optional)**
+- Runs a simple test task to verify your setup works end-to-end
+- Checks network connectivity before running (warns if offline)
+- Shows clear success/failure status
+- Great for catching configuration issues early
+
+**7. Diagnostics Summary**
+- Displays health check results for all components
+- Reports on task validity, paths, and system readiness
+
+**Need to run onboarding again?**
+- `clodputer init` - Re-run onboarding (preserves state)
+- `clodputer init --reset` - Wipe state and start completely fresh
+
+**Automatic Features:**
+- Every run logged to `~/.clodputer/onboarding.log` (rotates at 10MB, keeps 5 backups)
+- State file corruption recovery with automatic backups
+- Progress indicators for long-running operations
+- All errors include troubleshooting guidance
 
 ---
 
 ## 4. Inspect Your Workspace
 
-After onboarding completes you can review what was created:
+After onboarding completes, review what was created:
 
-- `~/.clodputer/tasks/` – task definitions copied or created by the wizard.
-- `~/.clodputer/env.json` – persisted Claude CLI path and onboarding metadata.
-- `~/.clodputer/onboarding.log` – transcript of the most recent onboarding session.
-
-To list available packaged templates at any point:
-
-```bash
-clodputer template list
+**Directory Structure:**
+```
+~/.clodputer/
+├── tasks/              # Your task definitions (YAML files)
+├── logs/               # Execution logs and transcripts
+├── archive/            # Completed task history
+├── env.json           # Persisted Claude CLI path and state
+├── env.json.backup    # Automatic backup of state (for recovery)
+└── onboarding.log     # Most recent onboarding transcript
 ```
 
-Copy an additional template:
+**State File (`env.json`):**
+- Stores Claude CLI path
+- Tracks onboarding runs and completion status
+- Schema version for future migrations
+- Automatically backed up before changes
+- Validated on every write to prevent corruption
+
+**Browse Available Templates:**
 
 ```bash
+# List all packaged templates
+clodputer template list
+
+# Export a specific template to your tasks directory
 clodputer template export daily-email.yaml
+
+# Export to a custom location
+clodputer template export calendar-sync.yaml --destination ~/my-tasks/
 ```
 
 ---
@@ -125,11 +186,44 @@ Both automation modes reuse the Claude CLI path and state configured during onbo
 
 ---
 
-## 8. Diagnostics & Cleanup
+## 8. Diagnostics, Troubleshooting & Cleanup
 
-- Run `clodputer doctor` after making configuration changes. It validates tasks, cron, watcher paths, and queue health.
-- `clodputer queue --clear` clears pending jobs (does not stop the active task).
-- `clodputer uninstall` removes cron entries if you need to disable scheduling temporarily.
+**Run Diagnostics:**
+```bash
+clodputer doctor
+```
+- Validates all task definitions
+- Checks cron and watcher configuration
+- Verifies paths and queue health
+- Reports on Claude CLI accessibility
+- **Run this after making configuration changes or if something isn't working**
+
+**Common Issues?**
+- Check the **[Troubleshooting Guide](troubleshooting.md)** for comprehensive solutions
+- Common topics covered:
+  - Claude CLI not detected
+  - Permission errors
+  - Cron not working on macOS
+  - Template import failures
+  - Network connectivity issues
+  - State file corruption recovery
+
+**Cleanup Commands:**
+```bash
+# Clear pending jobs (doesn't stop active task)
+clodputer queue --clear
+
+# Remove cron entries (temporary disable scheduling)
+clodputer uninstall
+
+# Reset onboarding state and start fresh
+clodputer init --reset
+```
+
+**Getting Help:**
+- Always run `clodputer doctor` before reporting issues
+- Check `~/.clodputer/onboarding.log` for detailed setup logs
+- Review `~/.clodputer/logs/` for task execution logs
 
 ---
 
