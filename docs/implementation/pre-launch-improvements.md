@@ -76,8 +76,8 @@ The onboarding implementation is solid and feature-complete. This document ident
 **Priority Levels**:
 - 🔴 **Critical** - Must fix before user testing ✅ **COMPLETE (4/4 items)**
 - 🟡 **High** - Should address before launch ✅ **COMPLETE (16/17 items)** - 1 deferred (submodule extraction)
-- 🟢 **Medium** - Quality of life improvements ✅ **COMPLETE (7/7 items)**
-- 🔵 **Low** - Future enhancements (remaining optional items)
+- 🟢 **Medium** - Pre-launch polish ✅ **COMPLETE (6/6 items)**
+- 🔵 **Low** - Optional future enhancements (16 items - not required for launch)
 
 ---
 
@@ -136,15 +136,15 @@ The onboarding implementation is solid and feature-complete. This document ident
   - **Location**: `src/clodputer/environment.py:17-38`
   - **Status**: ✅ Complete - Added OnboardingState model + 3 tests
 
-### 1.3 Diagnostics Coverage
+### 1.3 Diagnostics Coverage (Optional Future Enhancements)
 
-- [ ] **🟢 Add diagnostics for onboarding log health**
+- [ ] **🔵 Add diagnostics for onboarding log health**
 - **Issue**: `onboarding.log` can grow unbounded
 - **Risk**: Eventually fills disk or slows reads
 - **Fix**: Check file size in doctor, warn if >10MB
 - **Location**: `src/clodputer/diagnostics.py`
 
-- [ ] **🟢 Validate cron entry syntax before install**
+- [ ] **🔵 Validate cron entry syntax before install**
 - **Issue**: Invalid cron expressions only fail at install time
 - **Risk**: User completes onboarding, then cron silently fails
 - **Fix**: Dry-run validation with croniter before offering install
@@ -167,7 +167,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Location**: `src/clodputer/onboarding.py`
 - **Status**: ⏸️ Deferred - Attempted but rolled back due to test monkeypatching complexity. File is maintainable at 870 lines with good test coverage. Can revisit post-launch if needed.
 
-- [ ] **🟢 Consolidate logging patterns**
+- [ ] **🔵 Consolidate logging patterns** (Optional)
 - **Issue**: OnboardingLogger is specific to onboarding
 - **Opportunity**: Extract to general `transcripts.py` for reuse
 - **Benefit**: Could log dashboard sessions, watcher events
@@ -182,7 +182,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Location**: `src/clodputer/onboarding.py:195-234`
 - **Status**: ✅ Complete - Extracted `_select_from_list()` helper used in both template and CLAUDE.md selection
 
-- [ ] **🟢 DRY: Path validation logic**
+- [ ] **🔵 DRY: Path validation logic** (Optional)
 - **Issue**: Path existence checks scattered across modules
 - **Opportunity**: Create `validate_path()` utility
 - **Benefit**: Consistent error messages and behavior
@@ -260,7 +260,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Fix**: Add parametrized error tests
 - **Status**: ✅ Complete - Added 4 new tests covering disk full, permission errors, invalid UTF-8, and directory creation failures
 
-- [ ] **🟢 Property-based testing for state operations**
+- [ ] **🔵 Property-based testing for state operations** (Optional)
 - **Opportunity**: Use Hypothesis to test state update invariants
 - **Benefit**: Catch edge cases (concurrent updates, encoding issues)
 - **Location**: `tests/test_environment.py`
@@ -274,7 +274,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Check**: Run tests 100x to find flakes
 - **Status**: ✅ Complete - Ran 100 test iterations, no flaky tests detected (all 72 onboarding tests pass consistently)
 
-- [ ] **🟢 Mock external dependencies consistently**
+- [ ] **🔵 Mock external dependencies consistently** (Optional)
 - **Issue**: Some tests hit real filesystem unnecessarily
 - **Opportunity**: More aggressive mocking of I/O
 - **Benefit**: Faster test suite, works in restricted environments
@@ -292,7 +292,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Coverage**: All functions in onboarding.py, environment.py
 - **Status**: ✅ Complete - Added comprehensive docstrings to all public functions
 
-- [ ] **🟢 Add inline comments for complex logic**
+- [ ] **🔵 Add inline comments for complex logic** (Optional)
 - **Issue**: Some sections need explanation (CLAUDE.md diff logic)
 - **Fix**: Strategic comments explaining "why" not "what"
 - **Location**: `src/clodputer/onboarding.py:577-638`
@@ -313,7 +313,7 @@ The onboarding implementation is solid and feature-complete. This document ident
 - **Location**: Smoke test execution, cron install
 - **Status**: ✅ Complete - Added "⏳ Running task..." and "⏳ Installing cron jobs..." messages with success confirmations
 
-- [ ] **🟢 Standardize output formatting**
+- [ ] **🔵 Standardize output formatting** (Optional)
 - **Issue**: Mix of bullets, checkmarks, spacing
 - **Opportunity**: Consistent style guide for CLI output
 - **Benefit**: More professional appearance
@@ -329,12 +329,12 @@ The onboarding implementation is solid and feature-complete. This document ident
   - Template import failures
 - **Status**: ✅ Complete - Added comprehensive onboarding troubleshooting section
 
-- [ ] **🟢 Create architecture diagram for onboarding flow**
+- [ ] **🔵 Create architecture diagram for onboarding flow** (Optional)
 - **Format**: Mermaid diagram showing state transitions
 - **Location**: `docs/implementation/onboarding-architecture.md`
 - **Benefit**: Onboarding for new contributors
 
-- [ ] **🟢 Document state schema and migration strategy**
+- [ ] **🔵 Document state schema and migration strategy** (Optional)
 - **Location**: `docs/dev/state-management.md`
 - **Contents**: env.json structure, version history, migration path
 
@@ -342,14 +342,14 @@ The onboarding implementation is solid and feature-complete. This document ident
 
 ## 5. Performance & Scalability
 
-### 5.1 Startup Performance
+### 5.1 Startup Performance (Optional Future Enhancements)
 
-- [ ] **🟢 Lazy-load heavy imports**
+- [ ] **🔵 Lazy-load heavy imports**
   - **Issue**: All imports loaded even if unused
   - **Opportunity**: Defer dashboard, watcher imports
   - **Benefit**: Faster CLI startup (especially for --help)
 
-- [ ] **🟢 Cache template list**
+- [ ] **🔵 Cache template list**
   - **Issue**: Rescans templates dir on every call
   - **Opportunity**: Cache available_templates() result
   - **Benefit**: Faster repeated calls
@@ -363,7 +363,7 @@ The onboarding implementation is solid and feature-complete. This document ident
   - **Location**: `src/clodputer/onboarding.py:51`
   - **Status**: ✅ Complete - Added log rotation with 10MB limit, keep 5 backups + 2 tests
 
-- [ ] **🟢 Add log retention policy**
+- [ ] **🔵 Add log retention policy** (Optional)
   - **Issue**: Old execution logs never cleaned
   - **Proposal**: Auto-archive logs >30 days
   - **Location**: `src/clodputer/logger.py`
@@ -380,19 +380,19 @@ The onboarding implementation is solid and feature-complete. This document ident
   - **Location**: CLAUDE.md path input, template export
   - **Status**: ✅ Complete - Added _validate_user_path function + 3 tests, enforces home directory boundary
 
-- [ ] **🟢 Sanitize shell commands in cron**
+- [ ] **🔵 Sanitize shell commands in cron** (Optional)
   - **Issue**: Task names with special chars could break cron
   - **Current**: Already using shlex, but verify thoroughly
   - **Action**: Security audit of shell command generation
 
-### 6.2 Sensitive Data
+### 6.2 Sensitive Data (Optional Future Enhancements)
 
-- [ ] **🟢 Add .gitignore patterns to template .clodputer dirs**
+- [ ] **🔵 Add .gitignore patterns to template .clodputer dirs**
   - **Issue**: Users might accidentally commit onboarding.log
   - **Fix**: Create ~/.clodputer/.gitignore on init
   - **Contents**: `*.log`, `env.json`, `*.backup*`
 
-- [ ] **🟢 Warn about CLAUDE.md commit in git repos**
+- [ ] **🔵 Warn about CLAUDE.md commit in git repos**
   - **Issue**: CLAUDE.md often contains personal info
   - **Proposal**: Check if ~/CLAUDE.md is in git repo, warn
   - **Implementation**: Run `git ls-files CLAUDE.md` check
