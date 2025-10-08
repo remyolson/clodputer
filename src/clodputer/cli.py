@@ -47,6 +47,7 @@ from .dashboard import run_dashboard
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
 from .queue import QueueCorruptionError, QueueManager, lockfile_status
+from .templates import available as available_templates, export as export_template
 from .watcher import (
     WATCHER_LOG_FILE,
     WatcherError,
@@ -268,6 +269,7 @@ def list() -> None:  # type: ignore[override]
         click.echo("\nTasks with validation errors:")
         for path, error in errors:
             click.echo(f" • {path}: {error}")
+
 
 
 @cli.command()

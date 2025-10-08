@@ -90,14 +90,6 @@ open docs/implementation/PROGRESS.md
 python3 -m pip install clodputer
 ```
 
-This installs the `clodputer` CLI entry point and all runtime dependencies. To
-override the Claude CLI path:
-
-```bash
-export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
-export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
-```
-
 ### Homebrew tap
 
 ```bash
@@ -118,7 +110,8 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-See the [installation guide](docs/user/installation.md) for full details.
+See the [installation guide](docs/user/installation.md) for full details. `clodputer init`
+will guide you through first-time setup; manual environment variables are no longer required for most users.
 
 ## CLI Overview
 

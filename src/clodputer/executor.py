@@ -27,6 +27,7 @@ import uuid
 
 from .cleanup import CleanupReport, cleanup_process_tree
 from .config import ConfigError, TaskConfig, load_task_by_name, load_task_config
+from .environment import claude_cli_path
 from .logger import StructuredLogger
 from .metrics import record_failure, record_success
 from .queue import LockAcquisitionError, QueueCorruptionError, QueueItem, QueueManager
@@ -98,7 +99,11 @@ class ExecutionResult:
 
 
 def _resolve_claude_bin() -> str:
-    return os.getenv("CLODPUTER_CLAUDE_BIN", "claude")
+    env_override = os.getenv("CLODPUTER_CLAUDE_BIN")
+    path = claude_cli_path(env_override)
+    if path:
+        return path
+    return "claude"
 
 
 def _extra_args() -> List[str]:

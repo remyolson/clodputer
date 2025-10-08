@@ -64,18 +64,7 @@ clodputer doctor
 - `clodputer --version` prints the current package version.
 - `clodputer doctor` runs basic diagnostics (tasks directory, queue integrity, cron/watch status).
 
-## 4. Configure Claude CLI Path
-
-If your Claude CLI binary is not simply `claude` on the PATH, export the location once per shell session:
-
-```bash
-export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
-export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
-```
-
-These environment variables are also recorded in generated cron jobs, so they continue to apply during scheduled runs.
-
-## 5. Create the Tasks Directory
+## 4. Create the Tasks Directory
 
 ```bash
 mkdir -p ~/.clodputer/tasks
@@ -83,7 +72,7 @@ mkdir -p ~/.clodputer/tasks
 
 Place YAML task definitions here (see [Configuration Reference](configuration.md)).
 
-## 6. Optional: Menu Bar App
+## 5. Optional: Menu Bar App
 
 The menu bar app uses macOS Automation (`osascript`). Grant permission on first launch:
 
