@@ -44,6 +44,15 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+After installation, run the guided setup:
+
+```bash
+clodputer init
+```
+
+This detects the Claude CLI path, prepares directories, and stores the
+configuration for future commands.
+
 ## 3. Bootstrap Your Workspace
 
 1. Create the tasks directory:

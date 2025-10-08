@@ -46,6 +46,7 @@ from .cron import (
 from .dashboard import run_dashboard
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
+from .onboarding import run_onboarding
 from .queue import QueueCorruptionError, QueueManager, lockfile_status
 from .templates import available as available_templates, export as export_template
 from .watcher import (
@@ -128,6 +129,18 @@ def _today_stats() -> tuple[int, int]:
 @click.version_option(__version__)
 def cli() -> None:
     """Clodputer CLI."""
+
+
+@cli.command()
+def init() -> None:
+    """Run the guided onboarding workflow."""
+
+    try:
+        run_onboarding()
+    except click.ClickException:
+        raise
+    except Exception as exc:  # pragma: no cover - defensive guard
+        raise click.ClickException(f"Onboarding failed: {exc}") from exc
 
 
 @cli.command()

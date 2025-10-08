@@ -59,10 +59,12 @@ This installs both runtime and development dependencies (Click, Pydantic, watchd
 ```bash
 clodputer --version
 clodputer doctor
+clodputer init
 ```
 
 - `clodputer --version` prints the current package version.
 - `clodputer doctor` runs basic diagnostics (tasks directory, queue integrity, cron/watch status).
+- `clodputer init` runs the guided onboarding workflow.
 
 ## 4. Create the Tasks Directory
 

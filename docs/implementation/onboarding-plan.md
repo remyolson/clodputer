@@ -127,10 +127,10 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 - [x] Run `ruff`, `pytest`, and `pytest --cov` to ensure a clean baseline before onboarding changes.
 
 ### Phase 1 – Foundations
-- [ ] Introduce `clodputer.init` Click command with scaffolding and logging.
-- [ ] Implement path detection helpers for Claude CLI (search PATH + common installs).
-- [ ] Persist detected paths/settings to `~/.clodputer/env` for reuse.
-- [ ] Update executor/cron to fallback to persisted paths when env vars are absent.
+- [x] Introduce `clodputer init` Click command with scaffolding and logging.
+- [x] Implement path detection helpers for Claude CLI (search PATH + common installs).
+- [x] Persist detected paths/settings to `~/.clodputer/env.json` for reuse.
+- [x] Update executor/cron to fallback to persisted paths when env vars are absent.
 
 ### Phase 2 – Guided Setup Workflow
 - [ ] Build interactive prompts (yes/no/options) for key onboarding decisions.
