@@ -14,7 +14,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Sequence
 
+import json as json_module
+
 import click
+import yaml
 
 from .config import TASKS_DIR, TaskConfig, ensure_tasks_dir, validate_all_tasks
 from .formatting import (
@@ -67,6 +70,7 @@ CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS = 10
 CLAUDE_MD_SIZE_WARN_MB = 1
 CLAUDE_MD_SIZE_SKIP_DIFF_MB = 5
 BACKUP_TIMESTAMP_SUFFIX = ".backup-"
+TASK_GENERATION_TIMEOUT_SECONDS = 60
 
 
 class OnboardingLogger:
@@ -214,8 +218,11 @@ def run_onboarding(reset: bool = False) -> None:
         store_claude_cli_path(selected_path)
         print_success(f"Stored Claude CLI path in {STATE_FILE}")
 
-        print_step_header(3, 7, "Template Installation")
-        _offer_template_install()
+        print_step_header(3, 7, "Intelligent Task Generation")
+        # Try intelligent generation first, fall back to templates on failure
+        if not _offer_intelligent_task_generation():
+            print_info("Using template system instead")
+            _offer_template_install()
 
         print_step_header(4, 7, "CLAUDE.md Integration")
         _offer_claude_md_update()
@@ -936,6 +943,426 @@ def _verify_claude_cli(path: str) -> None:
             print_success(f"Detected Claude CLI: {version_line[0]}")
         else:
             print_success("Claude CLI responded to --version.")
+
+
+def _build_task_generation_prompt(mcps: list[dict]) -> str:
+    """Build the prompt for generating personalized task suggestions.
+
+    Args:
+        mcps: List of detected MCPs with their metadata
+
+    Returns:
+        Complete prompt string for Claude Code to generate tasks
+    """
+    # Filter to only connected MCPs
+    connected_mcps = [m for m in mcps if m["status"] == "connected"]
+
+    # Build MCP context
+    if connected_mcps:
+        mcp_section = "Available MCPs in this Claude Code installation:\n"
+        for mcp in connected_mcps:
+            mcp_section += f"- {mcp['name']}: {mcp['command']}\n"
+    else:
+        mcp_section = "No MCPs are currently configured in Claude Code.\n"
+
+    # MCP-specific task guidance
+    task_guidance = ""
+    mcp_names = {m["name"] for m in connected_mcps}
+
+    if "gmail" in mcp_names:
+        task_guidance += """
+- Email MCP detected: Consider email triage, inbox summarization, or draft response tasks
+  Examples: morning-email-triage, newsletter-digest, urgent-email-alerts
+"""
+
+    if any(cal in mcp_names for cal in ["google-calendar", "calendar"]):
+        task_guidance += """
+- Calendar MCP detected: Consider meeting prep, schedule analysis, or availability tasks
+  Examples: meeting-prep, schedule-optimizer, calendar-summary
+"""
+
+    if any(search in mcp_names for search in ["google-search", "duckduckgo-search", "crawl4ai"]):
+        task_guidance += """
+- Search/Crawl MCPs detected: Consider research, monitoring, or content extraction tasks
+  Examples: daily-news-brief, competitor-monitor, topic-research
+"""
+
+    if any(docs in mcp_names for docs in ["google-docs", "ultimate-google-docs", "google-drive"]):
+        task_guidance += """
+- Document MCPs detected: Consider document organization, summarization, or collaboration tasks
+  Examples: doc-organizer, meeting-notes-summary, shared-doc-monitor
+"""
+
+    if not task_guidance:
+        task_guidance = """
+- No specialized MCPs detected: Consider file operations, git automation, or system tasks
+  Examples: git-health-check, downloads-cleanup, todo-reminder, repo-analyzer
+"""
+
+    # Complete prompt
+    prompt = f"""You are helping set up Clodputer, an autonomous task automation system that runs Claude Code tasks on a schedule.
+
+{mcp_section}
+
+Your goal: Generate exactly 3 useful, safe, and immediately valuable task suggestions for this user.
+
+{task_guidance}
+
+IMPORTANT REQUIREMENTS:
+1. Each task must be IMMEDIATELY USEFUL (not a toy example)
+2. Tasks should complete in 30-60 seconds
+3. NO destructive operations (no delete, rm, drop, uninstall commands)
+4. Use available MCPs when relevant, but don't force it
+5. Include complete, valid YAML configuration
+6. Add helpful comments in the YAML
+7. Set reasonable schedules (cron expressions)
+
+OUTPUT FORMAT (must be valid JSON):
+{{
+  "tasks": [
+    {{
+      "name": "task-filename",
+      "description": "Brief user-facing description of value (1-2 sentences)",
+      "yaml_config": "Complete YAML including name, prompt, allowed_tools, trigger",
+      "reasoning": "Why this task is useful for this user (internal, not shown)"
+    }}
+  ]
+}}
+
+YAML TEMPLATE for each task:
+```yaml
+name: task-name
+prompt: |
+  Clear, specific instructions for Claude.
+  Explain what to do, what tools to use, what output to produce.
+allowed_tools:
+  - tool_name_1
+  - tool_name_2
+trigger:
+  type: cron
+  expression: "0 9 * * *"  # Daily at 9am
+  timezone: America/Los_Angeles
+enabled: true
+```
+
+Generate 3 tasks now. Focus on practical value and safety."""
+
+    return prompt
+
+
+def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
+    """Use Claude Code to generate personalized task suggestions.
+
+    Args:
+        mcps: List of detected MCPs with metadata
+
+    Returns:
+        List of task dicts with name, description, yaml_config, reasoning.
+        Returns None if generation fails.
+
+    Example:
+        >>> tasks = _generate_task_suggestions(mcps)
+        >>> tasks[0]["name"]
+        'morning-email-triage'
+    """
+    try:
+        # Get Claude CLI path
+        cli_path = claude_cli_path(None)
+        if not cli_path:
+            return None
+
+        # Build the prompt
+        prompt = _build_task_generation_prompt(mcps)
+
+        # Invoke Claude Code in headless mode
+        result = subprocess.run(
+            [cli_path, "--headless", "--output-format", "json"],
+            input=prompt,
+            capture_output=True,
+            text=True,
+            timeout=TASK_GENERATION_TIMEOUT_SECONDS,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return None
+
+        # Parse JSON response
+        try:
+            response = json_module.loads(result.stdout)
+        except json_module.JSONDecodeError:
+            return None
+
+        # Validate response structure
+        if not isinstance(response, dict) or "tasks" not in response:
+            return None
+
+        tasks = response["tasks"]
+        if not isinstance(tasks, list) or len(tasks) != 3:
+            return None
+
+        # Validate each task
+        validated_tasks = []
+        for task in tasks:
+            if _validate_generated_task(task):
+                validated_tasks.append(task)
+
+        # Need at least 1 valid task
+        if not validated_tasks:
+            return None
+
+        return validated_tasks
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+
+
+def _validate_generated_task(task: dict) -> bool:
+    """Validate a single generated task for safety and correctness.
+
+    Args:
+        task: Task dict with name, description, yaml_config, reasoning
+
+    Returns:
+        True if task is valid and safe, False otherwise
+    """
+    # Check required fields
+    required_fields = ["name", "description", "yaml_config"]
+    if not all(field in task for field in required_fields):
+        return False
+
+    # Validate name is a safe filename
+    name = task.get("name", "")
+    if not name or "/" in name or "\\" in name or ".." in name:
+        return False
+
+    # Validate YAML syntax
+    yaml_config = task.get("yaml_config", "")
+    try:
+        parsed = yaml.safe_load(yaml_config)
+        if not isinstance(parsed, dict):
+            return False
+    except Exception:
+        return False
+
+    # Safety check: scan for destructive keywords
+    dangerous_keywords = [
+        "rm -rf",
+        "delete",
+        "drop database",
+        "drop table",
+        "uninstall",
+        "sudo rm",
+        "format",
+        "mkfs",
+    ]
+
+    yaml_lower = yaml_config.lower()
+    for keyword in dangerous_keywords:
+        if keyword in yaml_lower:
+            return False
+
+    # Check that task has a prompt
+    if "prompt" not in parsed or not parsed["prompt"]:
+        return False
+
+    return True
+
+
+def _detect_available_mcps() -> list[dict]:
+    """Detect what MCPs the user has configured in Claude Code.
+
+    Returns:
+        List of dicts with MCP metadata: [{"name": str, "status": str, "command": str}]
+        Returns empty list if detection fails.
+
+    Example:
+        >>> mcps = _detect_available_mcps()
+        >>> [m["name"] for m in mcps if m["status"] == "connected"]
+        ['gmail', 'calendar', 'crawl4ai']
+    """
+    try:
+        # Get the claude CLI path
+        cli_path = claude_cli_path(None)
+        if not cli_path:
+            return []
+
+        # Run `claude mcp list`
+        result = subprocess.run(
+            [cli_path, "mcp", "list"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            return []
+
+        # Parse the output
+        return _parse_mcp_list_output(result.stdout)
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return []
+
+
+def _parse_mcp_list_output(output: str) -> list[dict]:
+    """Parse the output of `claude mcp list`.
+
+    Expected format:
+        Checking MCP server health...
+
+        name: command - ✓ Connected
+        name: command - ✗ Failed to connect
+
+    Args:
+        output: Raw stdout from `claude mcp list`
+
+    Returns:
+        List of dicts with MCP info: [{"name": str, "status": str, "command": str}]
+    """
+    mcps = []
+
+    for line in output.splitlines():
+        line = line.strip()
+
+        # Skip header and empty lines
+        if not line or "Checking MCP" in line:
+            continue
+
+        # Look for pattern: "name: command - ✓ Connected" or "name: command - ✗ Failed"
+        if ":" in line and ("-" in line):
+            try:
+                # Split on first colon to get name
+                name_part, rest = line.split(":", 1)
+                name = name_part.strip()
+
+                # Split on last dash to get status
+                if " - " in rest:
+                    command_part, status_part = rest.rsplit(" - ", 1)
+                    command = command_part.strip()
+                    status = status_part.strip()
+
+                    # Normalize status
+                    if "Connected" in status or "✓" in status:
+                        normalized_status = "connected"
+                    else:
+                        normalized_status = "failed"
+
+                    mcps.append({
+                        "name": name,
+                        "command": command,
+                        "status": normalized_status,
+                    })
+            except ValueError:
+                # Skip malformed lines
+                continue
+
+    return mcps
+
+
+def _offer_intelligent_task_generation() -> bool:
+    """Offer AI-generated task suggestions based on user's MCP setup.
+
+    Returns:
+        True if tasks were generated and installed successfully.
+        False if generation failed (caller should fall back to templates).
+    """
+    print_info("Analyzing your Claude Code setup...")
+
+    # Detect MCPs
+    mcps = _detect_available_mcps()
+    connected_count = sum(1 for m in mcps if m["status"] == "connected")
+
+    if mcps:
+        click.echo(f"    Found {len(mcps)} MCP(s), {connected_count} connected")
+    else:
+        click.echo("    No MCPs detected")
+
+    # Generate task suggestions
+    print_info("Generating personalized task suggestions...")
+    click.echo("    This may take 30-60 seconds...")
+
+    tasks = _generate_task_suggestions(mcps)
+
+    if not tasks:
+        print_warning("Could not generate task suggestions")
+        click.echo("    Will use template system instead")
+        return False
+
+    # Present tasks to user
+    click.echo(f"\n  📋 Generated {len(tasks)} task suggestions for you:\n")
+
+    for idx, task in enumerate(tasks, 1):
+        click.echo(f"  {idx}. [bold]{task['name']}[/bold]")
+        click.echo(f"     {task['description']}")
+        click.echo()
+
+    # Get user selection
+    if len(tasks) == 1:
+        default_selection = "1"
+    else:
+        default_selection = "all"
+
+    selection = click.prompt(
+        "  Select tasks to install (e.g., '1,3' or 'all')",
+        default=default_selection,
+        type=str,
+    ).strip()
+
+    # Parse selection
+    if selection.lower() == "all":
+        selected_indices = list(range(len(tasks)))
+    elif selection.lower() == "none" or not selection:
+        print_dim("No tasks selected")
+        return False
+    else:
+        try:
+            # Parse comma-separated numbers
+            selected_indices = []
+            for part in selection.split(","):
+                idx = int(part.strip()) - 1  # Convert to 0-based
+                if 0 <= idx < len(tasks):
+                    selected_indices.append(idx)
+                else:
+                    print_warning(f"Invalid selection: {part.strip()}")
+        except ValueError:
+            print_error("Invalid selection format")
+            return False
+
+    if not selected_indices:
+        print_dim("No valid tasks selected")
+        return False
+
+    # Install selected tasks
+    click.echo()
+    installed_count = 0
+
+    for idx in selected_indices:
+        task = tasks[idx]
+        filename = f"{task['name']}.yaml"
+        filepath = TASKS_DIR / filename
+
+        # Check for conflicts
+        if filepath.exists():
+            if not click.confirm(f"  {filename} exists. Overwrite?", default=False):
+                print_dim(f"Skipped {filename}")
+                continue
+
+        # Write task file
+        try:
+            filepath.write_text(task['yaml_config'], encoding='utf-8')
+            print_success(f"Created {filename}")
+            installed_count += 1
+        except OSError as exc:
+            print_error(f"Failed to create {filename}: {exc}")
+
+    if installed_count > 0:
+        click.echo(f"\n  🎉 Installed {installed_count} task(s) successfully")
+        return True
+    else:
+        print_warning("No tasks were installed")
+        return False
 
 
 __all__ = ["run_onboarding"]
