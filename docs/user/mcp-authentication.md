@@ -1,93 +1,61 @@
-# MCP Authentication Best Practices
+# MCP Authentication (Advanced Overrides)
 
-Clodputer relies on Model Context Protocol (MCP) tools to access external
-services such as Gmail, Google Calendar, Notion, or Todoist. This guide
-describes how to store credentials securely and surface them to Claude Code
-tasks without leaking secrets.
+Clodputer runs automations on top of Claude Code. Claude Code already manages
+Model Context Protocol (MCP) connections and the credentials required to access
+them. **For most setups you should rely entirely on Claude Code’s configuration** –
+Clodputer simply invokes the Claude CLI, so it inherits those MCP permissions
+automatically.
 
-## 1. Store secrets in `~/.clodputer/secrets.env`
+Only follow the steps below if you have an advanced use case where Claude Code
+cannot store a required credential (for example, a task that has to read a local
+API key from disk). In that scenario, you can supply overrides via
+`~/.clodputer/secrets.env` or auxiliary JSON files. Templates that reference
+`{{ secrets.* }}` will look in that file if present.
 
-Create a dedicated secrets file owned by your user:
+## 1. Create a secrets file (optional)
 
 ```bash
 install -m 600 /dev/null ~/.clodputer/secrets.env
 ```
 
-Add credentials as environment variables:
+Add only the values that cannot live in Claude Code:
 
 ```dotenv
-GMAIL_REFRESH_TOKEN=...
-GOOGLE_CALENDAR_SERVICE_ACCOUNT=...
 NOTION_API_KEY=...
-TODOIST_API_TOKEN=...
+PRIVATE_API_TOKEN=...
 ```
 
-`clodputer` automatically loads this file before executing tasks. Variables are
-available to YAML templates via Jinja placeholders, e.g.
-`"{{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT }}"`.
+Clodputer loads this file before executing tasks. Variables become available to
+YAML templates as `{{ secrets.NAME }}`.
 
 ## 2. Reference secrets in task configs
 
 ```yaml
 task:
   allowed_tools:
-    - mcp__google-calendar
-  context:
-    service_account: "{{ secrets.GOOGLE_CALENDAR_SERVICE_ACCOUNT }}"
-```
-
-Secrets **must not** be embedded directly in the YAML.
-
-## 3. Configure MCP tool files
-
-Some MCP integrations expect JSON configuration files. Store them inside
-`~/.clodputer/mcp/` and reference the path in `task.mcp_config`. Example for
-Notion:
-
-```json
-// ~/.clodputer/mcp/notion.json
-{
-  "auth": {
-    "token": "{{ secrets.NOTION_API_KEY }}"
-  },
-  "workspace": "automation"
-}
-```
-
-Then in the task:
-
-```yaml
-task:
-  mcp_config: ~/.clodputer/mcp/notion.json
-```
-
-## 4. Rotate tokens regularly
-
-1. Update `~/.clodputer/secrets.env` with the new value.
-2. Restart queued jobs: `clodputer queue --clear` (optional).
-3. Run `clodputer doctor` to ensure the configuration parses correctly.
-
-## 5. Export for Claude Code
-
-`clodputer update-docs` regenerates the CLAUDE.md instructions that teach Claude
-Code where secrets live and how to reference them. Run it after adding new MCP
-tools so the agent knows which environment variables to expect.
-
-## 6. Example: Google Calendar + Notion
-
-```yaml
-task:
-  allowed_tools:
-    - mcp__google-calendar
     - mcp__notion
   context:
-    calendar_email: "{{ secrets.GCAL_EMAIL }}"
-    notion_database_id: "{{ secrets.NOTION_CALENDAR_DB }}"
+    private_token: "{{ secrets.PRIVATE_API_TOKEN }}"
 ```
 
-- `GCAL_EMAIL` and `NOTION_CALENDAR_DB` are set in `secrets.env`.
-- Additional OAuth secrets (client ID/secret) live in
-  `~/.clodputer/mcp/google-calendar.json`.
+Keep the template prompt explicit so that Claude Code knows how to use the
+secret once it is injected.
 
-Keep `secrets.env` and MCP configs out of version control. The default
-`.gitignore` already excludes them.
+## 3. Optional MCP metadata files
+
+Some MCP plugins expect JSON configuration. Store overrides in
+`~/.clodputer/mcp/` if needed and point `task.mcp_config` at the file. Claude
+Code will see the contents when the task runs.
+
+## 4. Keep data fresh
+
+When rotating secrets: update `~/.clodputer/secrets.env`, re-run
+`clodputer doctor`, and optionally restart queued jobs.
+
+## 5. Maintain CLAUDE.md
+
+If you add new override secrets, regenerate the Clodputer section of CLAUDE.md
+(`clodputer update-docs`) so Claude Code is aware of the new environment keys.
+
+Remember: these overrides are optional. Prefer configuring MCP connections and
+credentials inside Claude Code whenever possible.

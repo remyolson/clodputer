@@ -123,7 +123,7 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 - [x] Wire the new `clodputer.templates` module into the CLI (list/export helper) so onboarding can reuse existing functions.
 - [x] Centralize Claude CLI path resolution in a shared utility consumed by executor, cron, and onboarding.
 - [x] Update cron/environment handling to read the persisted CLI path and avoid mandatory `CLODPUTER_CLAUDE_BIN` exports.
-- [ ] Review documentation references to manual MCP secret files (`docs/user/mcp-authentication.md`, quick start, installation) and align messaging with Claude Code–managed creds.
+- [x] Review documentation references to manual MCP secret files (`docs/user/mcp-authentication.md`, quick start, installation) and align messaging with Claude Code–managed creds.
 - [x] Run `ruff`, `pytest`, and `pytest --cov` to ensure a clean baseline before onboarding changes.
 
 ### Phase 1 – Foundations

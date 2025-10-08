@@ -13,7 +13,6 @@ This guide walks through installing Clodputer, creating your first automated tas
 
 Optional but recommended:
 
-- `~/.clodputer/secrets.env` for MCP credentials (see [MCP authentication best practices](mcp-authentication.md)).
 - `osascript` permissions for the menu bar dashboard.
 
 ---
@@ -45,15 +44,6 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-After installation, point Clodputer at your Claude CLI if it is not simply `claude`:
-
-```bash
-export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
-export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
-```
-
----
-
 ## 3. Bootstrap Your Workspace
 
 1. Create the tasks directory:
@@ -61,20 +51,15 @@ export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
    mkdir -p ~/.clodputer/tasks
    ```
 
-2. (Optional) Create the secrets file used by MCP integrations:
-   ```bash
-   install -m 600 /dev/null ~/.clodputer/secrets.env
-   # Example contents
-   cat >> ~/.clodputer/secrets.env <<'EOF'
-   GMAIL_REFRESH_TOKEN=...
-   NOTION_API_KEY=...
-   EOF
-   ```
-
-3. Copy a starter template. The repository root exposes templates as symlinks for easy browsing:
+2. (Optional) Copy a starter template. The repository root exposes templates as symlinks for easy browsing:
    ```bash
    cp templates/daily-email.yaml ~/.clodputer/tasks/email-summary.yaml
    ```
+
+   > Need to provide project-specific tokens or IDs? Configure them through Claude
+   > Code first. Only follow the advanced override described in
+   > [MCP authentication](mcp-authentication.md) if Claude Code’s configuration tools
+   > cannot express your use case.
 
 The packaged versions live under `src/clodputer/templates/` and ship with the Python package to keep `pip install clodputer` users in sync.
 
