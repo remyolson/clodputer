@@ -88,6 +88,7 @@ omit = [
     "src/clodputer/cli.py",
     "src/clodputer/cleanup.py",
     "src/clodputer/menubar.py",
+    "src/clodputer/dashboard.py",
     "src/clodputer/watcher.py",
 ]
 

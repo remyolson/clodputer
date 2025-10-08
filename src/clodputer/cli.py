@@ -4,6 +4,7 @@ Click-based CLI entry point for Clodputer.
 
 Commands included:
 - clodputer run <task>
+- clodputer dashboard
 - clodputer status
 - clodputer logs
 - clodputer list
@@ -42,6 +43,7 @@ from .cron import (
     scheduled_tasks,
     uninstall_cron_jobs,
 )
+from .dashboard import run_dashboard
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
 from .queue import QueueCorruptionError, QueueManager, lockfile_status
@@ -470,6 +472,18 @@ def menu() -> None:
         run_menu_bar()
     except Exception as exc:  # pragma: no cover
         raise click.ClickException(f"Failed to start menu bar: {exc}") from exc
+
+
+@cli.command()
+def dashboard() -> None:
+    """Launch the interactive terminal dashboard."""
+
+    try:
+        run_dashboard()
+    except KeyboardInterrupt:  # pragma: no cover - user exit
+        pass
+    except Exception as exc:  # pragma: no cover - curses failures
+        raise click.ClickException(f"Failed to start dashboard: {exc}") from exc
 
 
 @cli.command()

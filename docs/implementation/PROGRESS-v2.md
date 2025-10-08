@@ -27,9 +27,10 @@ This document charts the next wave of improvements, using the original planning 
 - **Notes**: Logger now records return codes, parse errors, and prunes archives to the 6 most recent files. `clodputer logs --json` exposes the structured stream for dashboards/scripting.
 
 ### 5.2 Terminal Dashboard (ref. planning/07-menu-bar-ui.md & 10-implementation-details.md)
-- [ ] Implement curses-based dashboard showing live queue/logs/resources.
-- [ ] Add hotkeys for task details, log tailing, and watcher status.
-- [ ] Integrate menu bar “Launch Dashboard” with full-screen UI.
+- [x] Implement curses-based dashboard showing live queue/logs/resources.
+- [x] Add hotkeys for task details, log tailing, and watcher status.
+- [x] Integrate menu bar “Launch Dashboard” with full-screen UI.
+- **Notes**: `clodputer dashboard` launches the full-screen curses UI with overlays for queue metrics, deep log tail, and watcher diagnostics; menu bar shortcut now runs the same command.
 
 ## Phase 6: Distribution & Ecosystem
 

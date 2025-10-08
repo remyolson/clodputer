@@ -96,7 +96,7 @@ class ClodputerMenuBar(rumps.App):
         script = (
             'tell application "Terminal"\n'
             "  activate\n"
-            '  do script "clodputer status"\n'
+            '  do script "clodputer dashboard"\n'
             "end tell"
         )
         _osascript(script)

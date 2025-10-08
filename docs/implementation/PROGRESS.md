@@ -347,12 +347,12 @@ Following the **"Tracer Bullet" approach** recommended by expert engineer:
   - [x] Launch dashboard in terminal
   - **Notes**: `ClodputerMenuBar` updates every 30s, reads queue status + recent events for icon/tooltips, offers menu actions to view status, open logs, and launch a Terminal window running `clodputer status`.
 
-- [ ] **Terminal dashboard** (optional)
-  - [ ] Use curses for full-screen display
-  - [ ] Show live queue status
-  - [ ] Show recent executions
-  - [ ] Update in real-time
-  - **Notes**:
+- [x] **Terminal dashboard** (optional)
+  - [x] Use curses for full-screen display
+  - [x] Show live queue status
+  - [x] Show recent executions
+  - [x] Update in real-time
+  - **Notes**: `clodputer dashboard` provides a curses UI with live queue/metrics panels, log streaming, hotkeys for task details + log tailing, and watcher diagnostics. Menu bar shortcut updated to launch the same command.
 
 ### 3.2 Error Handling & Polish
 
