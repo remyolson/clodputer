@@ -28,7 +28,7 @@ from typing import Iterable, List, Optional
 import click
 import json
 
-from .config import ConfigError, ensure_tasks_dir, load_task_by_name, validate_all_tasks
+from .config import ConfigError, TASKS_DIR, ensure_tasks_dir, load_task_by_name, validate_all_tasks
 from .cron import (
     CRON_LOG_FILE,
     CRON_SECTION_BEGIN,
@@ -269,6 +269,67 @@ def list() -> None:  # type: ignore[override]
         click.echo("\nTasks with validation errors:")
         for path, error in errors:
             click.echo(f" • {path}: {error}")
+
+
+@cli.group()
+def template() -> None:
+    """Manage bundled task templates."""
+
+
+@template.command("list")
+def template_list() -> None:
+    templates = available_templates()
+    if not templates:
+        click.echo("No bundled templates available.")
+        return
+    click.echo("Available templates:")
+    for name in templates:
+        click.echo(f" • {name}")
+
+
+@template.command("export")
+@click.argument("name")
+@click.option(
+    "--directory",
+    "directory",
+    default=str(TASKS_DIR),
+    type=click.Path(path_type=Path),
+    help="Directory to copy the template into (default: ~/.clodputer/tasks).",
+)
+@click.option(
+    "--output",
+    "output_path",
+    type=click.Path(path_type=Path),
+    help="Optional explicit file path to write the template to.",
+)
+@click.option("--overwrite", is_flag=True, help="Overwrite the destination file if it exists.")
+def template_export(name: str, directory: Path, output_path: Optional[Path], overwrite: bool) -> None:
+    """Copy a bundled template into your workspace."""
+
+    directory_path = directory.expanduser()
+
+    target: Path
+    if output_path:
+        target = output_path.expanduser()
+    else:
+        target = directory_path / name
+        directory_path.mkdir(parents=True, exist_ok=True)
+
+    if target.exists() and not overwrite:
+        raise click.ClickException(
+            f"Destination {target} already exists. Re-run with --overwrite to replace it."
+        )
+
+    try:
+        destination = target if output_path else directory_path
+        written = export_template(name, destination)
+    except FileNotFoundError as exc:
+        available = ", ".join(available_templates()) or "<none>"
+        raise click.ClickException(
+            f"Unknown template {name!r}. Available templates: {available}."
+        ) from exc
+
+    click.echo(f"Template {name} copied to {written}")
 
 
 

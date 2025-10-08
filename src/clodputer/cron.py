@@ -27,6 +27,7 @@ from croniter import croniter
 from zoneinfo import ZoneInfo
 
 from .config import TaskConfig
+from .environment import claude_cli_path
 from .queue import ensure_queue_dir
 
 CRON_SECTION_BEGIN = "# >>> BEGIN CLODPUTER JOBS >>>"
@@ -135,9 +136,9 @@ def _format_command(task: TaskConfig) -> str:
     command = " ".join(part for part in parts if part)
 
     env_prefix = []
-    claude_bin_env = os.getenv("CLODPUTER_CLAUDE_BIN")
-    if claude_bin_env:
-        env_prefix.append(f"CLODPUTER_CLAUDE_BIN={shlex.quote(claude_bin_env)}")
+    claude_path = claude_cli_path(os.getenv("CLODPUTER_CLAUDE_BIN"))
+    if claude_path:
+        env_prefix.append(f"CLODPUTER_CLAUDE_BIN={shlex.quote(claude_path)}")
     extra_args = os.getenv("CLODPUTER_EXTRA_ARGS")
     if extra_args:
         env_prefix.append(f"CLODPUTER_EXTRA_ARGS={shlex.quote(extra_args)}")
