@@ -91,7 +91,11 @@ def test_format_command_includes_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_uninstall_cron_jobs(monkeypatch: pytest.MonkeyPatch) -> None:
     content = f"{cron.CRON_SECTION_BEGIN}\n* * * * * echo hi\n{cron.CRON_SECTION_END}\n"
-    monkeypatch.setattr(cron, "_call_crontab", lambda args, input_text=None: subprocess.CompletedProcess(args, 0, "", ""))
+    monkeypatch.setattr(
+        cron,
+        "_call_crontab",
+        lambda args, input_text=None: subprocess.CompletedProcess(args, 0, "", ""),
+    )
 
     calls: List[str] = []
 

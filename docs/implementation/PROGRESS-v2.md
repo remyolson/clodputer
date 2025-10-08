@@ -12,10 +12,11 @@ This document charts the next wave of improvements, using the original planning 
 - **Deliverables**: Alias resolution with comments in crontab, interval → cron conversion, `schedule-preview` CLI with `croniter`, doctor checks for cron preview, docs/examples refreshed.
 
 ### 4.2 Smart Queue Management (ref. planning/09-safety-features.md “Resource Management”)
-- [ ] Add optional concurrency limits with resource heuristics (config-driven).
-- [ ] Implement exponential backoff retry policy (per task, default off).
-- [ ] Persist per-task metrics (success rate, avg duration) for reporting.
-- [ ] Enhance `clodputer queue` to display retry/backoff state.
+- [x] Add optional concurrency limits with resource heuristics (config-driven).
+- [x] Implement exponential backoff retry policy (per task, default off).
+- [x] Persist per-task metrics (success rate, avg duration) for reporting.
+- [x] Enhance `clodputer queue` to display retry/backoff state.
+- **Deliverables**: Added `~/.clodputer/config.yaml` settings loader, CPU/memory gating, automatic retry with exponential delay, structured logging of attempts, queue CLI shows attempt/not-before, doctor reports metrics. Metrics tracked in `metrics.json` with CLI summary.
 
 ## Phase 5: Observability & Dashboard
 

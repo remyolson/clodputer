@@ -101,6 +101,8 @@ class TaskSpec(BaseModel):
     timeout: int = Field(default=3600, gt=0)
     context: Dict[str, Any] = Field(default_factory=dict)
     mcp_config: Optional[str] = None
+    max_retries: int = Field(default=0, ge=0)
+    retry_backoff_seconds: int = Field(default=60, ge=1)
 
     @model_validator(mode="after")
     def validate_tools(self) -> "TaskSpec":

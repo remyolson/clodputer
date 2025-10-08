@@ -28,6 +28,7 @@ import uuid
 from .cleanup import CleanupReport, cleanup_process_tree
 from .config import ConfigError, TaskConfig, load_task_by_name, load_task_config
 from .logger import StructuredLogger
+from .metrics import record_failure, record_success
 from .queue import LockAcquisitionError, QueueCorruptionError, QueueItem, QueueManager
 
 logger = logging.getLogger(__name__)
@@ -295,6 +296,10 @@ class TaskExecutor:
             )
             if update_queue and self.queue_manager:
                 self.queue_manager.mark_failed(queue_item.id, timeout_payload)
+                record_failure(config.name)
+                if config.task.max_retries > queue_item.attempt:
+                    delay = config.task.retry_backoff_seconds * (2**queue_item.attempt)
+                    self.queue_manager.requeue_with_delay(queue_item, delay)
             self.execution_logger.task_failed(queue_item.id, config.name, timeout_payload, metadata)
             return result
         finally:
@@ -353,6 +358,9 @@ class TaskExecutor:
                     queue_item.id,
                     failure_payload,
                 )
+                if config.task.max_retries > queue_item.attempt:
+                    delay = config.task.retry_backoff_seconds * (2**queue_item.attempt)
+                    self.queue_manager.requeue_with_delay(queue_item, delay)
 
         if status == "success":
             success_payload = {
@@ -383,6 +391,11 @@ class TaskExecutor:
                 failure_payload,
                 metadata,
             )
+
+        if status == "success":
+            record_success(config.name, duration)
+        else:
+            record_failure(config.name)
 
         return result
 

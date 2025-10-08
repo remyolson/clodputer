@@ -4,6 +4,8 @@ from pathlib import Path
 
 import subprocess
 
+from clodputer import metrics as metrics_module
+from clodputer import settings as settings_module
 from clodputer.cleanup import CleanupReport
 from clodputer.config import ConfigError, TaskConfig
 from clodputer.executor import (
@@ -16,6 +18,19 @@ from clodputer.executor import (
     main,
 )
 from clodputer.queue import QueueManager
+
+
+def _configure_environment(tmp_path: Path, monkeypatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(home))
+    metrics_path = home / ".clodputer" / "metrics.json"
+    monkeypatch.setattr(metrics_module, "METRICS_FILE", metrics_path)
+    settings_path = home / ".clodputer" / "config.yaml"
+    monkeypatch.setattr(settings_module, "SETTINGS_FILE", settings_path)
+    monkeypatch.setattr(settings_module, "_CACHE", None)
+    monkeypatch.setattr("psutil.cpu_percent", lambda interval=None: 5.0)
+    monkeypatch.setattr("psutil.virtual_memory", lambda: type("vm", (), {"percent": 5.0})())
 
 
 def make_task_config() -> TaskConfig:
@@ -51,6 +66,7 @@ def test_extract_json_handles_code_block() -> None:
 
 
 def test_run_config_path_success(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     config_path = tmp_path / "task.yaml"
     config_path.write_text(
         """
@@ -91,6 +107,7 @@ task:
 
 
 def test_process_queue_handles_config_error(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     queue_file = tmp_path / "queue.json"
     lock_file = tmp_path / "queue.lock"
     with QueueManager(queue_file=queue_file, lock_file=lock_file) as queue:
@@ -110,6 +127,7 @@ def test_process_queue_handles_config_error(monkeypatch, tmp_path: Path) -> None
 
 
 def test_process_queue_success(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     config = make_task_config()
 
     class FakeProcess:
@@ -150,6 +168,7 @@ def test_process_queue_success(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_process_queue_json_failure(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     config = make_task_config()
 
     class FakeProcess:
@@ -189,6 +208,7 @@ def test_process_queue_json_failure(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_run_config_path_timeout(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     config_path = tmp_path / "timeout.yaml"
     config_path.write_text(
         """
@@ -233,6 +253,7 @@ task:
 
 
 def test_run_config_path_failure(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     config_path = tmp_path / "failure.yaml"
     config_path.write_text(
         """
@@ -273,6 +294,7 @@ task:
 
 
 def test_process_queue_skips_disabled(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     disabled = make_task_config()
     disabled.enabled = False
 
@@ -290,7 +312,8 @@ def test_process_queue_skips_disabled(monkeypatch, tmp_path: Path) -> None:
     assert failure["error"] == "task_disabled"
 
 
-def test_run_task_by_name_success(monkeypatch) -> None:
+def test_run_task_by_name_success(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
     config = make_task_config()
 
     class FakeProcess:
@@ -315,6 +338,68 @@ def test_run_task_by_name_success(monkeypatch) -> None:
     result = executor.run_task_by_name("sample")
     assert result.status == "success"
     assert result.return_code == 0
+
+
+def test_retry_on_failure(monkeypatch, tmp_path: Path) -> None:
+    _configure_environment(tmp_path, monkeypatch)
+    config = make_task_config()
+    config.task.max_retries = 1
+    config.task.retry_backoff_seconds = 1
+
+    class FailingProcess:
+        def __init__(self) -> None:
+            self.pid = 111
+            self.returncode = 1
+
+        def communicate(self, timeout=None):
+            return ("", "error")
+
+        def kill(self):
+            self.returncode = -9
+
+    class SuccessProcess:
+        def __init__(self) -> None:
+            self.pid = 222
+            self.returncode = 0
+
+        def communicate(self, timeout=None):
+            return ('{"ok": true}', "")
+
+        def kill(self):
+            self.returncode = -9
+
+    processes = [FailingProcess(), SuccessProcess()]
+
+    queue_file = tmp_path / "queue.json"
+    lock_file = tmp_path / "queue.lock"
+    with QueueManager(queue_file=queue_file, lock_file=lock_file) as queue:
+        queue.enqueue("sample")
+
+    monkeypatch.setattr("clodputer.executor.load_task_by_name", lambda name: config)
+    monkeypatch.setattr(
+        "clodputer.executor.cleanup_process_tree", lambda pid: CleanupReport([], [], [])
+    )
+    monkeypatch.setattr(
+        "clodputer.executor.subprocess.Popen",
+        lambda *a, **k: processes.pop(0),
+    )
+
+    queue = QueueManager(queue_file=queue_file, lock_file=lock_file, auto_lock=False)
+    executor = TaskExecutor(queue_manager=queue, execution_logger=NullExecutionLogger())
+
+    first = executor.process_queue_once()
+    assert first is not None and first.status == "failure"
+
+    # Fast-forward retry delay
+    queue._state.queued[0].not_before = None
+    queue._persist_state()
+
+    second = executor.process_queue_once()
+    assert second is not None and second.status == "success"
+
+    summary = metrics_module.metrics_summary()
+    assert summary["sample"]["failure"] >= 1
+    assert summary["sample"]["success"] >= 1
 
 
 def test_executor_main_queue_success(monkeypatch) -> None:

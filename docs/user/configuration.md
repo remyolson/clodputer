@@ -88,6 +88,8 @@ Interval triggers are converted into cron entries when you run `clodputer instal
   - The loader rejects unknown names with suggestions.
 - **Permission mode** mirrors Claude Code CLI.
 - **Timeout** is in seconds and defaults to 3600.
+- **max_retries** controls automatic retries (default 0).
+- **retry_backoff_seconds** multiplies by 2^attempt for exponential backoff.
 - **Context** values are injected into prompts using `{{ context.key }}` (manually referenced in your prompt text).
 - **Environment variables**: Use `{{ env.VAR_NAME }}`; they must exist in the current shell.
 
@@ -119,6 +121,19 @@ Copy and customise them to speed up onboarding.
 - Validate with `clodputer doctor` after editing configs.
 - Store secrets in environment variables; never commit credentials.
 - Archive or disable tasks instead of deleting so history remains consistent.
+
+## Global Settings (`~/.clodputer/config.yaml`)
+
+You can tune queue behaviour globally:
+
+```yaml
+queue:
+  max_parallel: 1          # Reserved for future parallel execution
+  cpu_percent: 85          # Defer tasks if CPU usage exceeds this threshold
+  memory_percent: 85       # Defer tasks if memory usage exceeds this threshold
+```
+
+These defaults are applied automatically if the file is absent.
 
 ## Troubleshooting
 

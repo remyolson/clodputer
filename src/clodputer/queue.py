@@ -18,10 +18,14 @@ import tempfile
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import psutil
+
+from .metrics import metrics_summary
+from .settings import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +44,22 @@ def _timestamp() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
+def _parse_timestamp(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        if value.endswith("Z"):
+            value = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _future_timestamp(seconds: int) -> str:
+    future = datetime.now(timezone.utc) + timedelta(seconds=seconds)
+    return future.isoformat().replace("+00:00", "Z")
+
+
 @dataclass
 class QueueItem:
     id: str
@@ -47,6 +67,8 @@ class QueueItem:
     priority: Priority
     enqueued_at: str
     metadata: Dict[str, Any] = field(default_factory=dict)
+    not_before: Optional[str] = None
+    attempt: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -55,6 +77,8 @@ class QueueItem:
             "priority": self.priority,
             "enqueued_at": self.enqueued_at,
             "metadata": self.metadata,
+            "not_before": self.not_before,
+            "attempt": self.attempt,
         }
 
     @staticmethod
@@ -65,6 +89,8 @@ class QueueItem:
             priority=data.get("priority", "normal"),  # type: ignore[return-value]
             enqueued_at=str(data.get("enqueued_at", _timestamp())),
             metadata=dict(data.get("metadata") or {}),
+            not_before=data.get("not_before"),
+            attempt=int(data.get("attempt", 0)),
         )
 
 
@@ -151,6 +177,13 @@ class QueueManager:
         self.lock_file = lock_file
         self._state = self._load_state()
         self._lock_acquired = False
+        self.settings = load_settings()
+        self._last_resource_log: Optional[float] = None
+        if self.settings.queue.max_parallel > 1:
+            logger.info(
+                "Queue max_parallel=%s requested but current executor operates sequentially.",
+                self.settings.queue.max_parallel,
+            )
         if auto_lock:
             self.acquire_lock()
 
@@ -202,8 +235,11 @@ class QueueManager:
         task_name: str,
         priority: Priority = "normal",
         metadata: Optional[Dict[str, Any]] = None,
+        not_before: Optional[str] = None,
+        attempt: int = 0,
     ) -> QueueItem:
         metadata = metadata or {}
+        attempt = int(metadata.get("attempt", attempt))
         task_id = str(uuid.uuid4())
         item = QueueItem(
             id=task_id,
@@ -211,6 +247,8 @@ class QueueManager:
             priority=priority,
             enqueued_at=_timestamp(),
             metadata=metadata,
+            not_before=not_before,
+            attempt=attempt,
         )
         self._state.queued.append(item)
         self._state.queued = self._sorted_queue(self._state.queued)
@@ -221,7 +259,16 @@ class QueueManager:
     def get_next_task(self) -> Optional[QueueItem]:
         if not self._state.queued:
             return None
-        return self._sorted_queue(self._state.queued)[0]
+
+        now = datetime.now(timezone.utc)
+        for item in self._sorted_queue(self._state.queued):
+            not_before = _parse_timestamp(item.not_before)
+            if not_before and not_before > now:
+                continue
+            if not self._resources_available():
+                return None
+            return item
+        return None
 
     def mark_running(self, task_id: str, pid: int) -> RunningTask:
         item, index = self._find_queue_item(task_id)
@@ -287,6 +334,7 @@ class QueueManager:
             "name": item.name,
             "failed_at": _timestamp(),
             "error": error,
+            "attempt": item.attempt,
         }
         self._state.failed.append(entry)
         self._persist_state()
@@ -295,6 +343,23 @@ class QueueManager:
         self._state.queued.clear()
         self._persist_state()
         logger.info("Cleared queued tasks")
+
+    def requeue_with_delay(self, item: QueueItem, delay_seconds: int) -> None:
+        item.attempt += 1
+        item.not_before = _future_timestamp(delay_seconds)
+        item.metadata = dict(item.metadata or {})
+        item.metadata["attempt"] = item.attempt
+        self._state.running = None
+        self._state.queued.append(item)
+        self._state.queued = self._sorted_queue(self._state.queued)
+        self._persist_state()
+        logger.info(
+            "Scheduled retry for %s (%s) attempt %s in %ss",
+            item.name,
+            item.id,
+            item.attempt,
+            delay_seconds,
+        )
 
     # ------------------------------------------------------------------
     # Diagnostics and status
@@ -309,6 +374,7 @@ class QueueManager:
             },
             "completed_recent": self._state.completed[-10:],
             "failed_recent": self._state.failed[-10:],
+            "metrics": metrics_summary(),
         }
 
     def validate_state(self) -> Tuple[bool, List[str]]:
@@ -338,8 +404,28 @@ class QueueManager:
     def _sorted_queue(items: List[QueueItem]) -> List[QueueItem]:
         return sorted(
             items,
-            key=lambda i: (0 if i.priority == "high" else 1, i.enqueued_at),
+            key=lambda i: (
+                0 if i.priority == "high" else 1,
+                _parse_timestamp(i.not_before) or datetime.min.replace(tzinfo=timezone.utc),
+                i.enqueued_at,
+            ),
         )
+
+    def _resources_available(self) -> bool:
+        thresholds = self.settings.queue
+        cpu = psutil.cpu_percent(interval=None)
+        memory = psutil.virtual_memory().percent
+        if cpu > thresholds.cpu_percent or memory > thresholds.memory_percent:
+            now = time.monotonic()
+            if not self._last_resource_log or now - self._last_resource_log > 30:
+                logger.info(
+                    "Resource thresholds exceeded (cpu %.1f%%, mem %.1f%%); deferring execution",
+                    cpu,
+                    memory,
+                )
+                self._last_resource_log = now
+            return False
+        return True
 
     def _load_state(self) -> QueueState:
         if not self.queue_file.exists():

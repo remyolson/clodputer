@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from clodputer import cli as cli_module
 from clodputer import config as config_module
 from clodputer import logger as logger_module
+from clodputer import metrics as metrics_module
 
 
 def _write_events(log_file: Path) -> None:
@@ -51,6 +52,8 @@ def _configure_tasks_env(tmp_path: Path, monkeypatch) -> Path:
         "validate_all_tasks",
         lambda: config_module.validate_all_tasks(tasks_dir=tasks_dir),
     )
+    metrics_path = home / ".clodputer" / "metrics.json"
+    monkeypatch.setattr(metrics_module, "METRICS_FILE", metrics_path)
     return tasks_dir
 
 

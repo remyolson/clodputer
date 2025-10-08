@@ -291,11 +291,24 @@ def queue(clear: bool) -> None:
         if status.get("queued"):
             click.echo("\nQueued tasks:")
             for item in status["queued"]:
+                extras = []
+                if item.get("attempt"):
+                    extras.append(f"attempt={item['attempt']}")
+                if item.get("not_before"):
+                    extras.append(f"not_before={item['not_before']}")
+                extra_text = f" ({', '.join(extras)})" if extras else ""
                 click.echo(
-                    f" • {item['name']} [{item['priority']}] enqueued_at={item['enqueued_at']}"
+                    f" • {item['name']} [{item['priority']}] enqueued_at={item['enqueued_at']}{extra_text}"
                 )
         else:
             click.echo("\nQueue is empty.")
+
+        if status.get("metrics"):
+            click.echo("\nTask metrics:")
+            for name, stats in status["metrics"].items():
+                click.echo(
+                    f" • {name}: success={stats['success']} failure={stats['failure']} avg_duration={stats['avg_duration']:.2f}s"
+                )
 
 
 @cli.command()
@@ -499,6 +512,14 @@ def status() -> None:
 
     success, failure = _today_stats()
     click.echo(f"\n📊 Today: {success} success / {failure} failed")
+
+    metrics = status.get("metrics") or {}
+    if metrics:
+        click.echo("\n📈 Task Metrics:")
+        for name, stats in list(metrics.items())[:5]:
+            click.echo(
+                f" • {name}: success={stats['success']} failure={stats['failure']} avg={stats['avg_duration']:.2f}s"
+            )
 
 
 @cli.command()
