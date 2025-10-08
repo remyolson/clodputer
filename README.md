@@ -117,6 +117,7 @@ will guide you through first-time setup; manual environment variables are no lon
 
 | Command | Description |
 |---------|-------------|
+| `clodputer init` | Guided onboarding that sets up everything automatically. |
 | `clodputer run <task>` | Enqueue (and optionally execute) a task. |
 | `clodputer list` | List configured tasks and their triggers. |
 | `clodputer status` | Show queue state and recent executions. |
@@ -128,74 +129,82 @@ will guide you through first-time setup; manual environment variables are no lon
 | `clodputer menu` | Launch the macOS menu bar app. |
 | `clodputer doctor` | Run diagnostics. |
 
-## First Two Example Runs
+## Getting Started in 60 Seconds
 
-The following walkthroughs mirror the templates and workflows defined in the planning package—mostly Phase 1/2 items from [05-finalized-specification.md](docs/planning/05-finalized-specification.md) and [09-safety-features.md](docs/planning/09-safety-features.md).
+After installing Clodputer, the guided onboarding sets up everything automatically:
 
-### Example 1: Daily Email Summary (Scheduled)
+```bash
+clodputer init
+```
 
-1. **Clone & install**
+This single command:
+- Detects your Claude CLI installation
+- Creates all necessary directories (`~/.clodputer/tasks`, `logs`, `archive`)
+- Copies starter templates
+- Optionally configures cron scheduling and file watching
+- Runs a smoke test to verify everything works
+- Displays a diagnostics summary
+
+See the [Quick Start Guide](docs/user/quick-start.md) for the complete walkthrough.
+
+### Example Workflows
+
+Once onboarding completes, you can explore these common patterns:
+
+**Daily Email Summary (Scheduled)**
+```bash
+clodputer template export daily-email.yaml
+clodputer run daily-email           # Manual test
+clodputer install                    # Enable cron scheduling
+clodputer schedule-preview daily-email --count 3
+```
+
+**Project File Watcher (Event-Driven)**
+```bash
+clodputer template export file-watcher.yaml
+# Edit ~/.clodputer/tasks/file-watcher.yaml to set your watched directory
+clodputer watch --daemon             # Start monitoring
+echo "# New Project" > ~/WatchedProjects/demo.md
+clodputer status                     # See queued task
+clodputer watch --stop               # Stop monitoring
+```
+
+These flows demonstrate the "Daily Email Management" and "Project Assignment Queue" scenarios from the planning docs, showing how cron and file triggers work end-to-end.
+
+### Advanced Setup (Manual Configuration)
+
+For users who prefer manual configuration or need to customize beyond what `clodputer init` provides, you can still configure everything by hand:
+
+<details>
+<summary>Click to expand manual setup instructions</summary>
+
+1. **Install from source**
    ```bash
    git clone https://github.com/remyolson/clodputer.git
    cd clodputer
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -e ".[dev]"
+   ```
+
+2. **Set environment variables** (optional, only if Claude CLI isn't in your PATH)
+   ```bash
    export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
    export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
    ```
-2. **Seed the task**
+
+3. **Create directories and copy templates**
    ```bash
    mkdir -p ~/.clodputer/tasks
-   cp templates/daily-email.yaml ~/.clodputer/tasks/email-summary.yaml
-   ```
-   The template aligns with the “Daily Email Management” use case in the planning docs.
-3. **Manual smoke test**
-   ```bash
-   clodputer run email-summary
-   clodputer status
-   clodputer logs --tail 5
-   ```
-   Expect a ✅ entry with JSON output recorded in `~/.clodputer/execution.log`.
-4. **Install cron automation**
-   ```bash
-   clodputer install
-   crontab -l
-   tail -f ~/.clodputer/cron.log
-   clodputer schedule-preview email-summary --count 3
-   ```
-   Cron output demonstrates the scheduling flow described in [08-installation-and-integration.md](docs/planning/08-installation-and-integration.md).
-
-### Example 2: Project File Watcher (Event-Driven)
-
-1. **Create a watched directory**
-   ```bash
-   mkdir -p ~/WatchedProjects
-   ```
-2. **Seed the watcher task**
-   ```bash
-   cp templates/file-watcher.yaml ~/.clodputer/tasks/project-watcher.yaml
-   sed -i '' 's|~/Projects/Inbox|~/WatchedProjects|' ~/.clodputer/tasks/project-watcher.yaml
-   ```
-3. **Start the watcher**
-   ```bash
-   clodputer watch --daemon
-   clodputer watch --status
-   ```
-4. **Trigger a file event**
-   ```bash
-   echo "# New Project" > ~/WatchedProjects/demo.md
-   sleep 2
-   clodputer queue
-   clodputer status
-   ```
-   You should see the task enqueued with metadata containing the file path—matching the Phase 2 watcher design.
-5. **Stop the watcher**
-   ```bash
-   clodputer watch --stop
+   clodputer template export daily-email.yaml
    ```
 
-These two flows cover the “Daily Email Management” and “Project Assignment Queue” scenarios from the planning archive, demonstrating how cron and file triggers work end-to-end.
+4. **Run diagnostics**
+   ```bash
+   clodputer doctor
+   ```
+
+</details>
 
 ## Tech Stack
 

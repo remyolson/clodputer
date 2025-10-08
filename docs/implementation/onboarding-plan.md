@@ -32,15 +32,16 @@ This friction is highlighted in `docs/user/quick-start.md`, which guides users t
 - Completed Phase 2 guided workflow: onboarding now offers template selection, ensures task/log/archive directories, and provides CLAUDE.md integration with diff preview before applying changes.
 - Delivered Phase 3 automation features: cron preview/install, watcher directory setup + daemon launch, runtime helper prompts, and inline smoke-test execution with result reporting.
 - Completed Phase 4 diagnostics & idempotency: onboarding logs transcripts, runs `doctor` with summaries, updates onboarding metadata, adds `--reset`, and keeps reruns clean.
+- Completed Phase 5 documentation & tests: updated README, quick-start, installation, and CLI reference docs to feature `clodputer init` prominently; added 9 new unit tests covering onboarding helpers (_format_seconds, _verify_claude_cli, _render_smoke_test_result, environment state management, CLAUDE.md detection); onboarding.py now at 86% test coverage with 43 passing tests.
 
 ### Where We Are
-- Onboarding foundations through Phase 4 are live on main (`2c98757` + latest work).
-- Phase 5 remains: documentation refresh and broader test coverage for onboarding helpers.
+- Onboarding foundations through Phase 5 are complete and live on main.
+- All phases (0-5) of the onboarding implementation plan have been successfully delivered.
 
 ### Next Steps
-- Move into Phase 5: elevate docs (Quick Start, installation, CLI reference) and expand automated test coverage for onboarding utilities.
-- Keep iterating on user messaging as automation surfaces mature.
-- Monitor diagnostics output in practice to see if additional checks are needed.
+- Monitor onboarding experience in practice and gather user feedback.
+- Consider additional enhancements based on real-world usage patterns.
+- Explore further automation opportunities as the system matures.
 
 ## Proposed User Flow (CLI)
 
@@ -174,7 +175,7 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 - [x] Log onboarding transcript to `~/.clodputer/onboarding.log` for support.
 
 ### Phase 5 – Documentation & Tests
-- [ ] Rewrite quick-start and installation docs to highlight `clodputer init`.
-- [ ] Document the new command in CLI reference/user guides.
-- [ ] Add unit tests for onboarding helpers (path detection, template sync).
-- [ ] Add integration test covering the overall CLI flow with mocked user input.
+- [x] Rewrite quick-start and installation docs to highlight `clodputer init`.
+- [x] Document the new command in CLI reference/user guides.
+- [x] Add unit tests for onboarding helpers (path detection, template sync).
+- [x] Add integration test covering the overall CLI flow with mocked user input.

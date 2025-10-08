@@ -72,6 +72,83 @@ This guide highlights common errors and quick fixes. Run `clodputer doctor` afte
   - Ensure rumps is installed (`pip install -e ".[dev]"`).
   - macOS may require Automation permission for Terminal/Script Editor on first use.
 
+## Onboarding Issues
+
+### Claude CLI not detected during `clodputer init`
+
+- **Symptom**: `clodputer init` prompts you to enter the Claude CLI path, but it's not automatically detected.
+- **Causes**:
+  - Claude CLI not in your system PATH
+  - Claude CLI installed in a non-standard location
+- **Solutions**:
+  1. Check if Claude CLI is installed:
+     ```bash
+     which claude
+     ```
+  2. If installed but not detected, provide the full path when prompted during `clodputer init`
+  3. If not installed, follow the [installation guide](installation.md) to install Claude CLI first
+  4. Common installation locations:
+     - `~/.claude/local/claude`
+     - `/opt/homebrew/bin/claude`
+     - `/usr/local/bin/claude`
+
+### Permission errors during setup
+
+- **Symptom**: "Permission denied" errors when creating directories or files
+- **Solutions**:
+  1. Ensure you have write permissions to your home directory:
+     ```bash
+     ls -la ~ | grep .clodputer
+     ```
+  2. If `.clodputer` exists with wrong permissions:
+     ```bash
+     chmod -R u+w ~/.clodputer
+     ```
+  3. On macOS, grant Terminal "Full Disk Access" in System Settings > Privacy & Security
+
+### Template import failures
+
+- **Symptom**: Template files not appearing in `~/.clodputer/tasks/` after onboarding
+- **Solutions**:
+  1. Check if templates were skipped during onboarding - you can import them manually:
+     ```bash
+     clodputer template list
+     clodputer template export <name>
+     ```
+  2. Verify the tasks directory exists:
+     ```bash
+     ls -la ~/.clodputer/tasks/
+     ```
+  3. Re-run onboarding with reset to start fresh:
+     ```bash
+     clodputer init --reset
+     ```
+
+### Cron installation fails on macOS with permission error
+
+- **Symptom**: `clodputer init` fails to install cron jobs with "permission denied" or "Operation not permitted"
+- **Cause**: macOS requires explicit permission for cron to access files
+- **Solutions**:
+  1. Grant Terminal "Full Disk Access" in System Settings > Privacy & Security > Full Disk Access
+  2. Restart Terminal after granting permission
+  3. Re-run the onboarding:
+     ```bash
+     clodputer init
+     ```
+  4. Alternatively, skip cron during onboarding and install manually later:
+     ```bash
+     clodputer install
+     ```
+
+### CLAUDE.md path validation errors
+
+- **Symptom**: Error message "Path must be within your home directory" when providing a CLAUDE.md path
+- **Cause**: Security validation prevents paths outside your home directory
+- **Solutions**:
+  1. Use a path within your home directory (e.g., `~/Documents/CLAUDE.md`)
+  2. CLAUDE.md should typically be in your home directory or a subdirectory
+  3. Avoid using absolute paths like `/etc/CLAUDE.md` or relative paths with `..`
+
 ## Logs & Support Files
 
 | File                               | Purpose                               |

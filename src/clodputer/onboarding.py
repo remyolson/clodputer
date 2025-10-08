@@ -6,6 +6,7 @@ import difflib
 import os
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import textwrap
@@ -33,7 +34,7 @@ from .environment import (
     store_claude_cli_path,
     update_state,
 )
-from .executor import TaskExecutionError, TaskExecutor
+from .executor import ExecutionResult, TaskExecutionError, TaskExecutor
 from .queue import QUEUE_DIR, ensure_queue_dir
 from .templates import available as available_templates, export as export_template
 from .watcher import (
@@ -49,7 +50,10 @@ ARCHIVE_DIR = QUEUE_DIR / "archive"
 
 
 class OnboardingLogger:
-    """Capture onboarding output to a persistent transcript."""
+    """Capture onboarding output to a persistent transcript with log rotation."""
+
+    MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+    MAX_BACKUP_COUNT = 5
 
     def __init__(self) -> None:
         self._original_echo = None
@@ -59,6 +63,7 @@ class OnboardingLogger:
     def __enter__(self) -> "OnboardingLogger":
         self._path = _onboarding_log_path()
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._rotate_if_needed()
         self._handle = self._path.open("a", encoding="utf-8")
         self._original_echo = click.echo
 
@@ -69,6 +74,37 @@ class OnboardingLogger:
 
         click.echo = logging_echo  # type: ignore[assignment]
         return self
+
+    def _rotate_if_needed(self) -> None:
+        """Rotate log files if the current log exceeds size limit."""
+        if not self._path or not self._path.exists():
+            return
+
+        try:
+            size = self._path.stat().st_size
+            if size <= self.MAX_LOG_SIZE_BYTES:
+                return
+
+            # Rotate existing backup files (delete oldest if at max count)
+            for i in range(self.MAX_BACKUP_COUNT - 1, 0, -1):
+                old_backup = self._path.parent / f"{self._path.name}.{i}"
+                new_backup = self._path.parent / f"{self._path.name}.{i + 1}"
+
+                if i == self.MAX_BACKUP_COUNT - 1:
+                    # Delete the oldest backup if it exists
+                    if new_backup.exists():
+                        new_backup.unlink()
+
+                if old_backup.exists():
+                    old_backup.rename(new_backup)
+
+            # Move current log to .1
+            backup_path = self._path.parent / f"{self._path.name}.1"
+            self._path.rename(backup_path)
+
+        except OSError:
+            # Non-fatal if rotation fails - continue with existing log
+            pass
 
     def __exit__(self, exc_type, exc, traceback) -> None:
         if self._original_echo is not None:
@@ -114,7 +150,27 @@ CLAUDE_MD_SECTION = textwrap.dedent(
 
 
 def run_onboarding(reset: bool = False) -> None:
-    """Execute the interactive onboarding sequence."""
+    """Execute the interactive onboarding sequence for Clodputer.
+
+    Guides the user through:
+    1. Claude CLI detection and configuration
+    2. Template installation (starter task templates)
+    3. CLAUDE.md setup (project instructions for Claude)
+    4. Optional automation (cron jobs, file watcher)
+    5. Runtime shortcuts (menu bar app, dashboard)
+    6. Smoke test to verify the setup
+
+    All state is persisted to ~/.clodputer/env.json with automatic
+    backups and corruption recovery.
+
+    Args:
+        reset: If True, clears existing onboarding state before starting.
+               Useful for reconfiguring from scratch.
+
+    Example:
+        >>> run_onboarding()  # First-time setup
+        >>> run_onboarding(reset=True)  # Reconfigure from scratch
+    """
 
     removed_paths = _reset_onboarding_state() if reset else []
 
@@ -172,13 +228,86 @@ def _onboarding_log_path() -> Path:
     return QUEUE_DIR / "onboarding.log"
 
 
+def _select_from_list(items: list[str] | list[Path], prompt_text: str, default: int = 1) -> int:
+    """Present a numbered list and prompt user to select an item.
+
+    Args:
+        items: List of items to display (strings or Paths).
+        prompt_text: Text to show in the selection prompt.
+        default: Default selection (1-based index). Defaults to 1.
+
+    Returns:
+        The 0-based index of the selected item.
+
+    Example:
+        >>> templates = ["task1.yaml", "task2.yaml"]
+        >>> index = _select_from_list(templates, "Select a template")
+        >>> selected = templates[index]
+    """
+    for index, item in enumerate(items, start=1):
+        click.echo(f"    {index}. {item}")
+
+    selection = click.prompt(
+        f"  {prompt_text}",
+        type=click.IntRange(1, len(items)),
+        default=default,
+    )
+    return selection - 1  # Convert to 0-based index
+
+
+def _validate_user_path(path: Path, allow_create: bool = True) -> Path:
+    """Validate a user-provided path for security.
+
+    Ensures the path:
+    1. Is under the user's home directory (prevents traversal to system files)
+    2. Does not contain suspicious patterns
+    3. Resolves to an absolute path
+
+    Args:
+        path: The path to validate.
+        allow_create: If False, path must already exist.
+
+    Returns:
+        The validated, resolved absolute Path.
+
+    Raises:
+        click.ClickException: If path is invalid or suspicious.
+    """
+    try:
+        # Resolve to absolute path and expand user
+        resolved = path.expanduser().resolve()
+
+        # Ensure path is under home directory
+        home = Path.home().resolve()
+        try:
+            resolved.relative_to(home)
+        except ValueError:
+            raise click.ClickException(
+                f"Path must be within your home directory ({home}). "
+                f"Provided path: {resolved}"
+            )
+
+        # Check if path must exist
+        if not allow_create and not resolved.exists():
+            raise click.ClickException(f"Path does not exist: {resolved}")
+
+        return resolved
+
+    except (OSError, RuntimeError) as exc:
+        raise click.ClickException(f"Invalid path: {exc}") from exc
+
+
 def _choose_claude_cli() -> str:
     candidate = claude_cli_path(os.getenv("CLODPUTER_CLAUDE_BIN"))
     if candidate:
-        if Path(candidate).exists() and click.confirm(
-            f"  Use Claude CLI at {candidate}?", default=True
-        ):
-            return candidate
+        try:
+            if Path(candidate).exists() and click.confirm(
+                f"  Use Claude CLI at {candidate}?", default=True
+            ):
+                return candidate
+        except (OSError, ValueError) as exc:
+            click.echo(f"  ⚠️ Cannot access {candidate}: {exc}")
+            candidate = None
 
     while True:
         if candidate:
@@ -186,9 +315,15 @@ def _choose_claude_cli() -> str:
         else:
             path_text = click.prompt("  Enter path to Claude CLI executable")
         path = os.path.expanduser(path_text.strip())
-        if Path(path).exists():
-            return path
-        click.echo("  ❌ Path not found. Please try again.")
+
+        try:
+            if Path(path).exists():
+                return path
+            click.echo("  ❌ Path not found. Please try again.")
+        except (OSError, ValueError) as exc:
+            click.echo(f"  ❌ Invalid path: {exc}")
+            click.echo("  Please enter a valid file path.")
+
         candidate = None
 
 
@@ -203,15 +338,8 @@ def _offer_template_install() -> None:
         click.echo("  • Skipped template import.")
         return
 
-    for index, name in enumerate(templates, start=1):
-        click.echo(f"    {index}. {name}")
-
-    selection = click.prompt(
-        "  Select a template number",
-        type=click.IntRange(1, len(templates)),
-        default=1,
-    )
-    chosen_template = templates[selection - 1]
+    index = _select_from_list(templates, "Select a template number")
+    chosen_template = templates[index]
 
     default_filename = Path(chosen_template).name
     save_as = click.prompt(
@@ -248,25 +376,26 @@ def _offer_claude_md_update() -> None:
                 return
         else:
             click.echo("  Found multiple CLAUDE.md candidates:")
-            for index, path in enumerate(candidates, start=1):
-                click.echo(f"    {index}. {path}")
-            selection = click.prompt(
-                "  Select the file to update",
-                type=click.IntRange(1, len(candidates)),
-                default=1,
-            )
-            claude_md_path = candidates[selection - 1]
+            index = _select_from_list(candidates, "Select the file to update")
+            claude_md_path = candidates[index]
     else:
         click.echo("  ⚠️ CLAUDE.md not found in default locations.")
         if not click.confirm("  Provide a path to create or update CLAUDE.md now?", default=False):
             click.echo("  • Skipped CLAUDE.md integration.")
             return
         entered = click.prompt("  Enter full path to CLAUDE.md").strip()
-        claude_md_path = Path(os.path.expanduser(entered)).expanduser()
-        claude_md_path.parent.mkdir(parents=True, exist_ok=True)
-        if not claude_md_path.exists():
-            claude_md_path.touch()
-            click.echo(f"  ✓ Created CLAUDE.md at {claude_md_path}")
+        user_path = Path(os.path.expanduser(entered))
+
+        try:
+            # Validate the path for security
+            claude_md_path = _validate_user_path(user_path, allow_create=True)
+            claude_md_path.parent.mkdir(parents=True, exist_ok=True)
+            if not claude_md_path.exists():
+                claude_md_path.touch()
+                click.echo(f"  ✓ Created CLAUDE.md at {claude_md_path}")
+        except click.ClickException:
+            # Re-raise click exceptions (from validation)
+            raise
 
     if claude_md_path is None:
         click.echo("  • Skipped CLAUDE.md update.")
@@ -342,10 +471,14 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
         click.echo("  • Skipped cron installation.")
         return
 
+    click.echo("  ⏳ Installing cron jobs...")
     try:
         result = install_cron_jobs(entries)
+        click.echo("  ✓ Cron jobs installed successfully")
     except CronError as exc:
         click.echo(f"  ❌ Failed to install cron jobs: {exc}")
+        click.echo("     • macOS users: Grant Full Disk Access to Terminal in System Settings")
+        click.echo("     • Or install manually later with: clodputer install")
         return
 
     click.echo(f"  ✓ Installed {result.get('installed', 0)} cron job(s).")
@@ -396,6 +529,8 @@ def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
         pid = start_watch_daemon()
     except WatcherError as exc:
         click.echo(f"  ❌ Failed to start watcher daemon: {exc}")
+        click.echo("     • Check that watch paths exist and are readable")
+        click.echo("     • Or start manually later with: clodputer watch --daemon")
         return
 
     click.echo(f"  ✓ Watcher daemon started (PID {pid}). Log: {WATCHER_LOG_FILE}")
@@ -466,6 +601,14 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
         click.echo("  • No enabled tasks available yet.")
         return
 
+    # Check network connectivity before offering smoke test
+    if not _check_network_connectivity():
+        click.echo("  ⚠️ Network connectivity issue detected.")
+        click.echo("     Tasks may require internet access to complete successfully.")
+        if not click.confirm("  Continue with smoke test anyway?", default=False):
+            click.echo("  • Skipped smoke test. Check your network connection and try again.")
+            return
+
     if not click.confirm("  Run a task now to verify end-to-end execution?", default=False):
         click.echo("  • Skipped smoke test.")
         return
@@ -480,20 +623,28 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
     )
     chosen = enabled_tasks[selection - 1]
 
+    click.echo(f"  ⏳ Running task '{chosen.name}'...")
     executor = TaskExecutor()
     try:
         result = executor.run_task_by_name(chosen.name)
     except TaskExecutionError as exc:
         click.echo(f"  ❌ Task execution failed: {exc}")
+        cli_path = claude_cli_path(None)
+        click.echo("     • Check logs: clodputer logs --tail 20")
+        if cli_path:
+            click.echo(f"     • Verify Claude CLI: {cli_path} --version")
+        click.echo("     • Run diagnostics: clodputer doctor")
         return
     except Exception as exc:  # pragma: no cover - defensive
         click.echo(f"  ❌ Smoke test errored: {exc}")
+        click.echo("     • Check logs: clodputer logs --tail 20")
+        click.echo("     • Run diagnostics: clodputer doctor")
         return
 
     _render_smoke_test_result(result)
 
 
-def _render_smoke_test_result(result) -> None:
+def _render_smoke_test_result(result: ExecutionResult) -> None:
     status_symbol = {"success": "✅", "failure": "❌", "timeout": "⏱️", "error": "⚠️"}.get(
         getattr(result, "status", ""), "ℹ️"
     )
@@ -520,6 +671,27 @@ def _format_seconds(seconds: float) -> str:
     if minutes:
         return f"{minutes}m{remainder:02d}s"
     return f"{remainder}s"
+
+
+def _check_network_connectivity() -> bool:
+    """Check if network connectivity is available.
+
+    Attempts a quick DNS lookup to verify internet connectivity.
+    Uses Cloudflare's 1.1.1.1 DNS server as a reliable test endpoint.
+
+    Returns:
+        True if network is available, False otherwise.
+
+    Example:
+        >>> if not _check_network_connectivity():
+        ...     click.echo("  ⚠️ Network connectivity issue detected")
+    """
+    try:
+        # Try to resolve a DNS name (Cloudflare's DNS)
+        socket.create_connection(("1.1.1.1", 53), timeout=3)
+        return True
+    except (socket.timeout, socket.error, OSError):
+        return False
 
 
 def _render_doctor_summary(results: Sequence[CheckResult]) -> None:
@@ -575,6 +747,27 @@ def _detect_claude_md_candidates() -> list[Path]:
 
 
 def _apply_claude_md_update(path: Path) -> None:
+    # Check file size before loading
+    try:
+        file_size = path.stat().st_size
+    except OSError as exc:
+        raise click.ClickException(f"Failed to check {path}: {exc}") from exc
+
+    # Warn if file is large (>1MB), skip diff if >5MB
+    MB = 1024 * 1024
+    if file_size > 5 * MB:
+        click.echo(f"  ⚠️ CLAUDE.md is very large ({file_size // MB}MB).")
+        click.echo("     Skipping diff preview to avoid memory issues.")
+        if not click.confirm("  Add Clodputer guidance without preview?", default=False):
+            click.echo("  • Skipped CLAUDE.md update.")
+            return
+        skip_diff = True
+    elif file_size > 1 * MB:
+        click.echo(f"  ⚠️ CLAUDE.md is large ({file_size // MB}MB). Diff may be slow.")
+        skip_diff = False
+    else:
+        skip_diff = False
+
     try:
         current_text = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -592,30 +785,36 @@ def _apply_claude_md_update(path: Path) -> None:
     if not new_text.endswith("\n"):
         new_text += "\n"
 
-    diff = "".join(
-        difflib.unified_diff(
-            current_text.splitlines(keepends=True),
-            new_text.splitlines(keepends=True),
-            fromfile=str(path),
-            tofile=str(path),
+    if skip_diff:
+        # Skip diff for very large files
+        diff = None
+    else:
+        diff = "".join(
+            difflib.unified_diff(
+                current_text.splitlines(keepends=True),
+                new_text.splitlines(keepends=True),
+                fromfile=str(path),
+                tofile=str(path),
+            )
         )
-    )
 
-    if not diff:
-        click.echo("  • No changes required for CLAUDE.md.")
-        return
+    if diff is not None:
+        if not diff:
+            click.echo("  • No changes required for CLAUDE.md.")
+            return
 
-    click.echo("  Proposed CLAUDE.md update:")
-    diff_lines = diff.splitlines()
-    preview_limit = 80
-    for line in diff_lines[:preview_limit]:
-        click.echo(f"    {line}")
-    if len(diff_lines) > preview_limit:
-        click.echo("    ... (diff truncated)")
+        click.echo("  Proposed CLAUDE.md update:")
+        diff_lines = diff.splitlines()
+        preview_limit = 80
+        for line in diff_lines[:preview_limit]:
+            click.echo(f"    {line}")
+        if len(diff_lines) > preview_limit:
+            click.echo("    ... (diff truncated)")
 
-    if not click.confirm("  Apply this update?", default=True):
-        click.echo("  • Skipped CLAUDE.md update.")
-        return
+        if not click.confirm("  Apply this update?", default=True):
+            click.echo("  • Skipped CLAUDE.md update.")
+            return
+    # If diff is None, we already confirmed above for large files
 
     backup_path = path.with_name(f"{path.name}.backup-{int(time.time())}")
     try:
@@ -643,9 +842,14 @@ def _verify_claude_cli(path: str) -> None:
             capture_output=True,
             text=True,
             check=False,
+            timeout=10,  # Add 10 second timeout
         )
     except FileNotFoundError as exc:
         raise click.ClickException(f"Claude CLI not executable at {path}") from exc
+    except subprocess.TimeoutExpired:
+        click.echo("  ⚠️ Claude CLI --version timed out after 10 seconds.")
+        click.echo("     This may indicate an issue with the Claude installation.")
+        return
 
     if result.returncode != 0:
         click.echo("  ⚠️ Unable to confirm Claude CLI version (non-zero exit code).")
