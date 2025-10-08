@@ -12,6 +12,7 @@ Commands included:
 - clodputer install
 - clodputer uninstall
 - clodputer watch
+- clodputer manage
 - clodputer doctor
 """
 
@@ -58,6 +59,7 @@ from .watcher import (
     watcher_status,
 )
 from .menubar import run_menu_bar
+from .manager import run_manager
 
 try:
     __version__ = metadata.version("clodputer")
@@ -614,6 +616,17 @@ def status() -> None:
             click.echo(
                 f" • {name}: success={stats['success']} failure={stats['failure']} avg={stats['avg_duration']:.2f}s"
             )
+
+
+@cli.command()
+def manage() -> None:
+    """Launch the interactive task manager (browse, edit, run, delete tasks)."""
+    try:
+        run_manager()
+    except KeyboardInterrupt:
+        click.echo("\n\nExiting task manager...")
+    except Exception as exc:  # pragma: no cover - defensive guard
+        raise click.ClickException(f"Task manager failed: {exc}") from exc
 
 
 @cli.command()
