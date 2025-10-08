@@ -64,6 +64,11 @@ def test_queue_cancel_nonexistent(tmp_path: Path, monkeypatch) -> None:
 
 def test_queue_priority_ordering(tmp_path: Path, monkeypatch) -> None:
     _configure_environment(tmp_path, monkeypatch)
+    # Create permissive config to avoid resource check failures in CI
+    settings_path = tmp_path / "config.yaml"
+    settings_path.write_text("queue:\n  cpu_percent: 99.0\n  memory_percent: 99.0\n")
+    monkeypatch.setattr(settings_module, "_CACHE", None)
+
     queue_file = tmp_path / "queue.json"
     lock_file = tmp_path / "queue.lock"
     with QueueManager(queue_file=queue_file, lock_file=lock_file) as queue:
