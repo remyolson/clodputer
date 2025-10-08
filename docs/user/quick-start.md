@@ -1,38 +1,88 @@
 # Quick Start
 
-This walkthrough creates a simple automation that drafts email summaries and runs it manually, via cron, and through the file watcher.
+This guide walks through installing Clodputer, creating your first automated task, and exploring the core tooling (cron, file watcher, dashboard).
 
-## 1. Install & Prepare
+---
 
-1. Follow the [Installation Guide](installation.md).
-2. Ensure `~/.clodputer/tasks/` exists.
-3. Export your Claude CLI path (if needed):
-   ```bash
-   export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
-   export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
-   ```
+## 1. Prerequisites
 
-## 2. Create Your First Task
+- macOS 13+ (Ventura or newer)
+- Python 3.9 or later (`python3 --version`)
+- Claude Code CLI installed and authenticated (`which claude`)
+- Internet access for package installation
 
-Create `~/.clodputer/tasks/email-summary.yaml`:
+Optional but recommended:
 
-```yaml
-name: email-summary
-enabled: true
-priority: normal
+- `~/.clodputer/secrets.env` for MCP credentials (see [MCP authentication best practices](mcp-authentication.md)).
+- `osascript` permissions for the menu bar dashboard.
 
-task:
-  prompt: |
-    Summarise today's unread emails and output a short JSON object:
-    {"task": "email-summary", "status": "done", "highlights": "..."}
-  allowed_tools:
-    - Read
-    - Write
-    - mcp__gmail
-  timeout: 600
+---
+
+## 2. Install Clodputer
+
+Pick one of the installation methods:
+
+### PyPI
+
+```bash
+python3 -m pip install clodputer
 ```
 
-## 3. Run the Task
+### Homebrew tap
+
+```bash
+brew tap remyolson/clodputer https://github.com/remyolson/clodputer.git
+brew install clodputer
+```
+
+### From source (for contributors)
+
+```bash
+git clone https://github.com/remyolson/clodputer.git
+cd clodputer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+After installation, point Clodputer at your Claude CLI if it is not simply `claude`:
+
+```bash
+export CLODPUTER_CLAUDE_BIN=/Users/you/.claude/local/claude
+export CLODPUTER_EXTRA_ARGS="--dangerously-skip-permissions"
+```
+
+---
+
+## 3. Bootstrap Your Workspace
+
+1. Create the tasks directory:
+   ```bash
+   mkdir -p ~/.clodputer/tasks
+   ```
+
+2. (Optional) Create the secrets file used by MCP integrations:
+   ```bash
+   install -m 600 /dev/null ~/.clodputer/secrets.env
+   # Example contents
+   cat >> ~/.clodputer/secrets.env <<'EOF'
+   GMAIL_REFRESH_TOKEN=...
+   NOTION_API_KEY=...
+   EOF
+   ```
+
+3. Copy a starter template. The repository root exposes templates as symlinks for easy browsing:
+   ```bash
+   cp templates/daily-email.yaml ~/.clodputer/tasks/email-summary.yaml
+   ```
+
+The packaged versions live under `src/clodputer/templates/` and ship with the Python package to keep `pip install clodputer` users in sync.
+
+---
+
+## 4. Run Your First Task
+
+Execute the imported template:
 
 ```bash
 clodputer run email-summary
@@ -40,83 +90,102 @@ clodputer run email-summary
 
 You should see:
 
-- Console output showing a ✅ success message.
+- A ✅ status line in the terminal.
 - `clodputer status` reporting an idle queue and the recent execution.
-- `~/.clodputer/execution.log` containing structured JSON events.
+- Structured JSON events in `~/.clodputer/execution.log`.
 
-## 4. Schedule with Cron
+---
 
-Add a cron expression:
+## 5. Schedule with Cron
 
-```yaml
-schedule:
-  type: cron
-  expression: "0 8 * * *"
-  timezone: America/Los_Angeles
-```
+1. Open `~/.clodputer/tasks/email-summary.yaml` and add a schedule:
+   ```yaml
+   schedule:
+     type: cron
+     expression: "0 8 * * *"
+     timezone: America/Los_Angeles
+   ```
 
-Reinstall cron jobs:
+2. Install or refresh cron jobs:
+   ```bash
+   clodputer install
+   ```
 
-```bash
-clodputer install
-```
+3. Inspect the crontab section and upcoming runs:
+   ```bash
+   crontab -l
+   clodputer schedule-preview email-summary --count 3
+   tail -f ~/.clodputer/cron.log
+   ```
 
-Confirm with `crontab -l`. The job writes output to `~/.clodputer/cron.log`.
+---
 
-## 5. Configure a File Watcher
+## 6. Watch a Folder for Changes
 
-Add a second task (`~/.clodputer/tasks/inbox-watcher.yaml`):
+1. Create another task (`~/.clodputer/tasks/inbox-watcher.yaml`):
+   ```yaml
+   name: inbox-watcher
+   enabled: true
+   trigger:
+     type: file_watch
+     path: ~/WatchedInbox
+     pattern: "*.md"
+     event: created
+     debounce: 500
+   task:
+     prompt: |
+       Read the newly added Markdown file and output
+       {"file": "...", "status": "processed"}.
+     allowed_tools:
+       - Read
+       - Write
+   ```
 
-```yaml
-name: inbox-watcher
-enabled: true
-trigger:
-  type: file_watch
-  path: ~/WatchedInbox
-  pattern: "*.md"
-  event: created
-  debounce: 500
-task:
-  prompt: |
-    Read the newly added Markdown file and output {"file": "...", "status": "processed"}.
-  allowed_tools:
-    - Read
-    - Write
-```
+2. Start the watcher in the background:
+   ```bash
+   mkdir -p ~/WatchedInbox
+   clodputer watch --daemon
+   ```
 
-Start the watcher in the background:
+3. Drop a `.md` file into `~/WatchedInbox`. Check activity:
+   ```bash
+   clodputer queue
+   clodputer status
+   tail -f ~/.clodputer/watcher.log
+   ```
 
-```bash
-clodputer watch --daemon
-```
+4. Stop the watcher when finished:
+   ```bash
+   clodputer watch --stop
+   ```
 
-Dropping a `.md` file into `~/WatchedInbox` should enqueue `inbox-watcher` (check `clodputer queue` and `clodputer status`).
+---
 
-Stop the watcher:
+## 7. Explore the UI
 
-```bash
-clodputer watch --stop
-```
+- **Terminal dashboard**: `clodputer dashboard`
+  - Live queue, metrics, logs, and overlays (`t` task details, `l` log tail, `w` watcher status).
+- **Menu bar app**: `clodputer menu`
+  - 🟢 idle, 🔵 running, 🔴 error.
+  - Quick actions for viewing status, logs, and launching the dashboard.
 
-## 6. Explore the Menu Bar
+---
 
-```bash
-clodputer menu
-```
+## 8. Diagnostics & Cleanup
 
-- 🟢 idle, 🔵 running, 🔴 error.
-- `View Status` shows the current queue.
-- `Open Logs` launches the execution log.
-- `Launch Dashboard` opens a Terminal window running `clodputer status`.
+- Run `clodputer doctor` after making configuration changes. It validates tasks, cron, watcher paths, and queue health.
+- `clodputer queue --clear` clears pending jobs (does not stop the active task).
+- `clodputer uninstall` removes cron entries if you need to disable scheduling temporarily.
 
-## 7. Diagnostics
+---
 
-Run `clodputer doctor` anytime to verify configuration, cron, watcher, and queue state.
+## 9. Next Steps
 
-## 8. Next Steps
-
-- Dive into the [Configuration Reference](configuration.md) for advanced options.
-- Read the [Troubleshooting Guide](troubleshooting.md) if you hit issues.
-- Browse [templates](../../templates/) for ready-made task definitions including the new
+- Dive into the [Configuration Reference](configuration.md) for advanced YAML options (context variables, retries, MCP configs).
+- Follow the [MCP authentication guide](mcp-authentication.md) to wire external services securely.
+- Browse the template catalog under [`templates/`](../../templates/) for ready-made recipes such as
   [`calendar-sync`](../../templates/calendar-sync.yaml) and
-  [`todo-triage`](../../templates/todo-triage.yaml) recipes.
+  [`todo-triage`](../../templates/todo-triage.yaml).
+- Check the [Troubleshooting Guide](troubleshooting.md) if you hit issues, and run `clodputer doctor` before seeking help.
+
+You now have a complete loop: manual execution, scheduled automation, event-driven triggers, monitoring, and diagnostics. Happy automating!
