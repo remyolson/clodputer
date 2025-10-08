@@ -293,8 +293,7 @@ def _validate_user_path(path: Path, allow_create: bool = True) -> Path:
             resolved.relative_to(home)
         except ValueError:
             raise click.ClickException(
-                f"Path must be within your home directory ({home}). "
-                f"Provided path: {resolved}"
+                f"Path must be within your home directory ({home}). " f"Provided path: {resolved}"
             )
 
         # Check if path must exist
@@ -699,8 +698,7 @@ def _check_network_connectivity() -> bool:
     try:
         # Try to resolve a DNS name (Cloudflare's DNS)
         socket.create_connection(
-            (NETWORK_CHECK_HOST, NETWORK_CHECK_PORT),
-            timeout=NETWORK_CHECK_TIMEOUT_SECONDS
+            (NETWORK_CHECK_HOST, NETWORK_CHECK_PORT), timeout=NETWORK_CHECK_TIMEOUT_SECONDS
         )
         return True
     except (socket.timeout, socket.error, OSError):
@@ -859,7 +857,9 @@ def _verify_claude_cli(path: str) -> None:
     except FileNotFoundError as exc:
         raise click.ClickException(f"Claude CLI not executable at {path}") from exc
     except subprocess.TimeoutExpired:
-        click.echo(f"  ⚠️ Claude CLI --version timed out after {CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS} seconds.")
+        click.echo(
+            f"  ⚠️ Claude CLI --version timed out after {CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS} seconds."
+        )
         click.echo("     This may indicate an issue with the Claude installation.")
         return
 

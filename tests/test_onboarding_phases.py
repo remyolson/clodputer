@@ -806,7 +806,9 @@ def test_render_smoke_test_result_success(monkeypatch):
 
     onboarding._render_smoke_test_result(result)
 
-    assert any("✅" in message and "test" in message and "success" in message for message in outputs)
+    assert any(
+        "✅" in message and "test" in message and "success" in message for message in outputs
+    )
     assert any("2s" in message for message in outputs)
 
 

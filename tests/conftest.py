@@ -71,9 +71,7 @@ def mock_subprocess_success():
     """
     return SimpleNamespace(
         run=lambda *args, **kwargs: SimpleNamespace(
-            returncode=0,
-            stdout="Claude CLI 1.0",
-            stderr=""
+            returncode=0, stdout="Claude CLI 1.0", stderr=""
         )
     )
 
@@ -92,9 +90,7 @@ def mock_subprocess_failure():
     """
     return SimpleNamespace(
         run=lambda *args, **kwargs: SimpleNamespace(
-            returncode=1,
-            stdout="",
-            stderr="Command failed"
+            returncode=1, stdout="", stderr="Command failed"
         )
     )
 
@@ -208,6 +204,7 @@ def mock_click_confirm():
         ...     # User always rejects
         ...     monkeypatch.setattr("click.confirm", mock_click_confirm(False))
     """
+
     def _mock_confirm(return_value: bool) -> Callable:
         return lambda *args, **kwargs: return_value
 
@@ -226,6 +223,7 @@ def mock_click_prompt():
         ...     # User enters "option1"
         ...     monkeypatch.setattr("click.prompt", mock_click_prompt("option1"))
     """
+
     def _mock_prompt(return_value: str) -> Callable:
         return lambda *args, **kwargs: return_value
 
@@ -266,6 +264,7 @@ def write_state(isolated_state):
         ...     write_state({"claude_cli": "/path/to/claude"})
         ...     # State file now contains the data
     """
+
     def _write(data: dict) -> None:
         isolated_state.write_text(json.dumps(data, indent=2))
 
