@@ -48,11 +48,21 @@ from .watcher import (
 LOG_DIR = QUEUE_DIR / "logs"
 ARCHIVE_DIR = QUEUE_DIR / "archive"
 
+# Configuration constants
+MEGABYTE = 1024 * 1024
+NETWORK_CHECK_TIMEOUT_SECONDS = 3
+NETWORK_CHECK_HOST = "1.1.1.1"  # Cloudflare DNS
+NETWORK_CHECK_PORT = 53
+CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS = 10
+CLAUDE_MD_SIZE_WARN_MB = 1
+CLAUDE_MD_SIZE_SKIP_DIFF_MB = 5
+BACKUP_TIMESTAMP_SUFFIX = ".backup-"
+
 
 class OnboardingLogger:
     """Capture onboarding output to a persistent transcript with log rotation."""
 
-    MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+    MAX_LOG_SIZE_BYTES = 10 * MEGABYTE  # 10 MB
     MAX_BACKUP_COUNT = 5
 
     def __init__(self) -> None:
@@ -688,7 +698,10 @@ def _check_network_connectivity() -> bool:
     """
     try:
         # Try to resolve a DNS name (Cloudflare's DNS)
-        socket.create_connection(("1.1.1.1", 53), timeout=3)
+        socket.create_connection(
+            (NETWORK_CHECK_HOST, NETWORK_CHECK_PORT),
+            timeout=NETWORK_CHECK_TIMEOUT_SECONDS
+        )
         return True
     except (socket.timeout, socket.error, OSError):
         return False
@@ -754,16 +767,15 @@ def _apply_claude_md_update(path: Path) -> None:
         raise click.ClickException(f"Failed to check {path}: {exc}") from exc
 
     # Warn if file is large (>1MB), skip diff if >5MB
-    MB = 1024 * 1024
-    if file_size > 5 * MB:
-        click.echo(f"  ⚠️ CLAUDE.md is very large ({file_size // MB}MB).")
+    if file_size > CLAUDE_MD_SIZE_SKIP_DIFF_MB * MEGABYTE:
+        click.echo(f"  ⚠️ CLAUDE.md is very large ({file_size // MEGABYTE}MB).")
         click.echo("     Skipping diff preview to avoid memory issues.")
         if not click.confirm("  Add Clodputer guidance without preview?", default=False):
             click.echo("  • Skipped CLAUDE.md update.")
             return
         skip_diff = True
-    elif file_size > 1 * MB:
-        click.echo(f"  ⚠️ CLAUDE.md is large ({file_size // MB}MB). Diff may be slow.")
+    elif file_size > CLAUDE_MD_SIZE_WARN_MB * MEGABYTE:
+        click.echo(f"  ⚠️ CLAUDE.md is large ({file_size // MEGABYTE}MB). Diff may be slow.")
         skip_diff = False
     else:
         skip_diff = False
@@ -816,7 +828,7 @@ def _apply_claude_md_update(path: Path) -> None:
             return
     # If diff is None, we already confirmed above for large files
 
-    backup_path = path.with_name(f"{path.name}.backup-{int(time.time())}")
+    backup_path = path.with_name(f"{path.name}{BACKUP_TIMESTAMP_SUFFIX}{int(time.time())}")
     try:
         shutil.copy2(path, backup_path)
     except FileNotFoundError:
@@ -842,12 +854,12 @@ def _verify_claude_cli(path: str) -> None:
             capture_output=True,
             text=True,
             check=False,
-            timeout=10,  # Add 10 second timeout
+            timeout=CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS,
         )
     except FileNotFoundError as exc:
         raise click.ClickException(f"Claude CLI not executable at {path}") from exc
     except subprocess.TimeoutExpired:
-        click.echo("  ⚠️ Claude CLI --version timed out after 10 seconds.")
+        click.echo(f"  ⚠️ Claude CLI --version timed out after {CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS} seconds.")
         click.echo("     This may indicate an issue with the Claude installation.")
         return
 

@@ -13,6 +13,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 STATE_FILE = Path.home() / ".clodputer" / "env.json"
 STATE_SCHEMA_VERSION = 1  # Current schema version
 
+# Configuration constants
+STATE_BACKUP_SUFFIX = ".backup"
+STATE_CORRUPTED_SUFFIX = ".corrupted"
+
 
 class OnboardingState(BaseModel):
     """Validated onboarding state model.
@@ -204,7 +208,7 @@ def _load_state() -> dict:
         return migrated
     except json.JSONDecodeError as exc:
         # Attempt recovery from backup
-        backup_file = STATE_FILE.parent / f"{STATE_FILE.name}.backup"
+        backup_file = STATE_FILE.parent / f"{STATE_FILE.name}{STATE_BACKUP_SUFFIX}"
         if backup_file.exists():
             try:
                 content = backup_file.read_text(encoding="utf-8")
@@ -223,7 +227,7 @@ def _load_state() -> dict:
         print("  Starting with clean state. Run 'clodputer init' to reconfigure.", file=sys.stderr)
 
         # Archive corrupted file for debugging
-        corrupted_file = STATE_FILE.parent / f"{STATE_FILE.name}.corrupted"
+        corrupted_file = STATE_FILE.parent / f"{STATE_FILE.name}{STATE_CORRUPTED_SUFFIX}"
         try:
             STATE_FILE.rename(corrupted_file)
             print(f"  Corrupted file saved to: {corrupted_file}", file=sys.stderr)
@@ -265,7 +269,7 @@ def _persist_state(data: dict) -> None:
 
     # Create backup of existing state before overwriting
     if STATE_FILE.exists():
-        backup_file = STATE_FILE.parent / f"{STATE_FILE.name}.backup"
+        backup_file = STATE_FILE.parent / f"{STATE_FILE.name}{STATE_BACKUP_SUFFIX}"
         try:
             shutil.copy2(STATE_FILE, backup_file)
         except OSError:
