@@ -316,7 +316,9 @@ def template_list() -> None:
     help="Optional explicit file path to write the template to.",
 )
 @click.option("--overwrite", is_flag=True, help="Overwrite the destination file if it exists.")
-def template_export(name: str, directory: Path, output_path: Optional[Path], overwrite: bool) -> None:
+def template_export(
+    name: str, directory: Path, output_path: Optional[Path], overwrite: bool
+) -> None:
     """Copy a bundled template into your workspace."""
 
     directory_path = directory.expanduser()
@@ -343,7 +345,6 @@ def template_export(name: str, directory: Path, output_path: Optional[Path], ove
         ) from exc
 
     click.echo(f"Template {name} copied to {written}")
-
 
 
 @cli.command()

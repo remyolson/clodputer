@@ -64,8 +64,12 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
 
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
     monkeypatch.setattr(onboarding, "_offer_template_install", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
@@ -97,7 +101,9 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     runner = CliRunner()
@@ -133,8 +139,12 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
     monkeypatch.setattr(onboarding, "_offer_template_install", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
@@ -145,7 +155,9 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     runner = CliRunner()
@@ -180,8 +192,12 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
 
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
 
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
@@ -192,7 +208,9 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     copied: dict[str, Path] = {}
@@ -204,7 +222,9 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
         copied["name"] = name
         return path
 
-    monkeypatch.setattr(onboarding, "available_templates", lambda: ["daily-email.yaml", "manual-task.yaml"])
+    monkeypatch.setattr(
+        onboarding, "available_templates", lambda: ["daily-email.yaml", "manual-task.yaml"]
+    )
     monkeypatch.setattr(onboarding, "export_template", fake_export)
 
     runner = CliRunner()
@@ -245,8 +265,12 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
 
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
 
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
@@ -257,7 +281,9 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     runner = CliRunner()
@@ -295,8 +321,12 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
 
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
 
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
@@ -306,7 +336,9 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     monkeypatch.setattr(onboarding, "available_templates", lambda: ["manual-task.yaml"])
@@ -381,8 +413,12 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
 
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
 
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_detect_claude_md_candidates", lambda: [])
@@ -393,7 +429,9 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     recorded: dict[str, Path] = {}
@@ -467,11 +505,17 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
 
-    monkeypatch.setattr(onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True))
-    monkeypatch.setattr(onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True))
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
 
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
-    monkeypatch.setattr(onboarding, "_detect_claude_md_candidates", lambda: [candidate_one, candidate_two])
+    monkeypatch.setattr(
+        onboarding, "_detect_claude_md_candidates", lambda: [candidate_one, candidate_two]
+    )
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
     monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
@@ -479,7 +523,9 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding,
         "subprocess",
-        SimpleNamespace(run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")),
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
     )
 
     recorded: dict[str, Path] = {}
@@ -588,7 +634,9 @@ def test_offer_smoke_test_runs_selected_task(monkeypatch):
                 output_json={"ok": True},
                 output_parse_error=None,
                 error=None,
-                cleanup=SimpleNamespace(actions=["cleanup"],),
+                cleanup=SimpleNamespace(
+                    actions=["cleanup"],
+                ),
             )
 
     monkeypatch.setattr(onboarding, "TaskExecutor", lambda: FakeExecutor())
@@ -610,7 +658,9 @@ def test_offer_runtime_shortcuts_invokes_launchers(monkeypatch):
 
     launches: list[str] = []
     monkeypatch.setattr(onboarding, "_launch_menu_bar_app", lambda: launches.append("menu"))
-    monkeypatch.setattr(onboarding, "_launch_dashboard_terminal", lambda: launches.append("dashboard"))
+    monkeypatch.setattr(
+        onboarding, "_launch_dashboard_terminal", lambda: launches.append("dashboard")
+    )
 
     onboarding._offer_runtime_shortcuts()
 
@@ -662,7 +712,9 @@ def test_offer_watcher_setup_skips_when_running(monkeypatch, tmp_path):
     trigger = FileWatchTrigger(path=str(watch_dir), pattern="*.txt", event="created")
     task = TaskConfig(name="watch", task=TaskSpec(prompt="watch"), trigger=trigger)
 
-    monkeypatch.setattr(onboarding, "watcher_status", lambda: {"running": True, "pid": 123, "log_file": "log"})
+    monkeypatch.setattr(
+        onboarding, "watcher_status", lambda: {"running": True, "pid": 123, "log_file": "log"}
+    )
     monkeypatch.setattr(onboarding.click, "echo", lambda *_: None)
     monkeypatch.setattr(
         onboarding,
@@ -762,7 +814,11 @@ def test_offer_template_install_overwrite_declined(monkeypatch, tmp_path):
 
     monkeypatch.setattr(onboarding, "TASKS_DIR", tasks_dir)
     monkeypatch.setattr(onboarding, "available_templates", lambda: ["manual.yaml"])
-    monkeypatch.setattr(onboarding, "export_template", lambda *_: (_ for _ in ()).throw(AssertionError("export_template should not be called")))
+    monkeypatch.setattr(
+        onboarding,
+        "export_template",
+        lambda *_: (_ for _ in ()).throw(AssertionError("export_template should not be called")),
+    )
 
     confirms = iter([True, False])
     monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: next(confirms))

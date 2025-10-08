@@ -84,7 +84,9 @@ def run_onboarding() -> None:
     click.echo("\nSetup complete! Next steps:")
     click.echo("  • Add tasks to ~/.clodputer/tasks/ (try `clodputer template list`).")
     click.echo("  • Run `clodputer run <task>` to execute a task once.")
-    click.echo("  • Use `clodputer install` and `clodputer watch` when you're ready for automation.")
+    click.echo(
+        "  • Use `clodputer install` and `clodputer watch` when you're ready for automation."
+    )
     click.echo("  • Re-run `clodputer init` anytime to update settings.")
 
 
@@ -126,9 +128,7 @@ def _offer_template_install() -> None:
         click.echo("  ⚠️ No built-in templates found. Skipping.")
         return
 
-    if not click.confirm(
-        "  Copy a starter template into ~/.clodputer/tasks now?", default=True
-    ):
+    if not click.confirm("  Copy a starter template into ~/.clodputer/tasks now?", default=True):
         click.echo("  • Skipped template import.")
         return
 
@@ -365,14 +365,14 @@ def _launch_menu_bar_app() -> None:
 
 def _launch_dashboard_terminal() -> None:
     command = shlex.join(["clodputer", "dashboard"])
-    script = (
-        'tell application "Terminal"\n'
-        "  activate\n"
-        f"  do script \"{command}\"\n"
-        "end tell"
-    )
+    script = f'tell application "Terminal"\n  activate\n  do script "{command}"\nend tell'
     try:
-        subprocess.run(["osascript", "-e", script], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ["osascript", "-e", script],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     except Exception as exc:
         click.echo(f"  ❌ Failed to launch dashboard: {exc}")
     else:
