@@ -10,7 +10,7 @@ class Clodputer < Formula
   license "MIT"
   head "https://github.com/remyolson/clodputer.git", branch: "main"
 
-  depends_on "python@3.11"
+  depends_on "python@3.13"
 
   resource "annotated-types" do
     url "https://files.pythonhosted.org/packages/ee/67/531ea369ba64dcff5ec9c3402f9f51bf748cec26dde048a2f973a4eea7f5/annotated_types-0.7.0.tar.gz"
