@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "language/python/virtualenv"
-
 class Clodputer < Formula
   include Language::Python::Virtualenv
 
