@@ -4,6 +4,16 @@ from types import SimpleNamespace
 from click.testing import CliRunner
 
 
+def _stub_doctor(monkeypatch):
+    from clodputer import onboarding
+
+    monkeypatch.setattr(
+        onboarding,
+        "gather_diagnostics",
+        lambda: [SimpleNamespace(name="Doctor", passed=True, details=[])],
+    )
+
+
 def test_environment_store_and_resolve(monkeypatch, tmp_path):
     from clodputer import environment as env
 
@@ -63,7 +73,9 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
 
+    _stub_doctor(monkeypatch)
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
     )
@@ -75,28 +87,6 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
     monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
-
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
         onboarding,
@@ -110,10 +100,12 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     result = runner.invoke(cli, ["init"], input="\n")
 
     assert result.exit_code == 0, result.output
-    assert state_file.exists()
     data = json.loads(state_file.read_text())
     assert data["claude_cli"] == str(claude_path)
+    assert data.get("onboarding_runs") == 1
+    assert "onboarding_last_run" in data
     assert tasks_dir.exists()
+    assert (queue_dir / "onboarding.log").exists()
 
 
 def test_cli_init_manual_path(monkeypatch, tmp_path):
@@ -139,6 +131,7 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
     )
@@ -166,6 +159,71 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
     assert result.exit_code == 0, result.output
     data = json.loads(state_file.read_text())
     assert data["claude_cli"] == str(claude_path)
+    assert data.get("onboarding_runs") == 1
+    assert "onboarding_last_run" in data
+
+
+def test_cli_init_reset_clears_state(monkeypatch, tmp_path):
+    from clodputer import config, environment, queue, onboarding
+    from clodputer.cli import cli
+
+    home = tmp_path / "home"
+    claude_path = tmp_path / "bin" / "claude"
+    claude_path.parent.mkdir(parents=True)
+    claude_path.write_text("#!/bin/sh\necho 'Claude CLI 1.0'\n")
+    claude_path.chmod(0o755)
+
+    queue_dir = home / ".clodputer"
+    tasks_dir = queue_dir / "tasks"
+    state_file = queue_dir / "env.json"
+    log_file = queue_dir / "onboarding.log"
+    state_file.parent.mkdir(parents=True, exist_ok=True)
+    state_file.write_text(json.dumps({"stale": True}), encoding="utf-8")
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    log_file.write_text("old log\n", encoding="utf-8")
+
+    monkeypatch.setenv("HOME", str(home))
+
+    monkeypatch.setattr(config, "TASKS_DIR", tasks_dir)
+    monkeypatch.setattr(onboarding, "TASKS_DIR", tasks_dir)
+    monkeypatch.setattr(environment, "STATE_FILE", state_file)
+    monkeypatch.setattr(onboarding, "STATE_FILE", state_file)
+    monkeypatch.setattr(queue, "QUEUE_DIR", queue_dir)
+    monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
+    monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
+    monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+
+    _stub_doctor(monkeypatch)
+    monkeypatch.setattr(
+        onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(
+        onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
+    )
+    monkeypatch.setattr(onboarding, "_offer_template_install", lambda: None)
+    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+
+    monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
+    monkeypatch.setattr(
+        onboarding,
+        "subprocess",
+        SimpleNamespace(
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["init", "--reset"], input="\n")
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(state_file.read_text())
+    assert "stale" not in data
+    assert data.get("onboarding_runs") == 1
+    assert "onboarding_last_run" in data
+    assert "old log" not in log_file.read_text()
 
 
 def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
@@ -191,6 +249,7 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
 
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
@@ -264,6 +323,7 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
 
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
@@ -320,6 +380,7 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
 
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
@@ -412,6 +473,7 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
 
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
@@ -504,6 +566,7 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
     monkeypatch.setattr(onboarding, "QUEUE_DIR", queue_dir)
     monkeypatch.setattr(onboarding, "LOG_DIR", queue_dir / "logs")
     monkeypatch.setattr(onboarding, "ARCHIVE_DIR", queue_dir / "archive")
+    _stub_doctor(monkeypatch)
 
     monkeypatch.setattr(
         onboarding, "ensure_queue_dir", lambda: queue_dir.mkdir(parents=True, exist_ok=True)
@@ -802,6 +865,24 @@ def test_offer_smoke_test_handles_execution_error(monkeypatch):
     onboarding._offer_smoke_test([task])
 
     assert any("Task execution failed" in message for message in outputs)
+
+
+def test_render_doctor_summary_reports_failures(monkeypatch):
+    from clodputer import onboarding
+
+    outputs: list[str] = []
+    monkeypatch.setattr(onboarding.click, "echo", lambda message: outputs.append(message))
+
+    onboarding._render_doctor_summary(
+        [
+            SimpleNamespace(name="pass", passed=True, details=[]),
+            SimpleNamespace(name="fail", passed=False, details=["issue"]),
+        ]
+    )
+
+    assert any("Issues detected" in message for message in outputs)
+    assert any("❌ fail" in message for message in outputs)
+    assert any("issue" in message for message in outputs)
 
 
 def test_offer_template_install_overwrite_declined(monkeypatch, tmp_path):

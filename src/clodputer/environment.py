@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 
 STATE_FILE = Path.home() / ".clodputer" / "env.json"
@@ -43,9 +43,22 @@ def claude_cli_path(explicit: Optional[str] = None) -> Optional[str]:
 
 
 def store_claude_cli_path(path: str) -> None:
+    update_state({"claude_cli": path})
+
+
+def update_state(updates: Dict[str, object]) -> None:
     data = _load_state()
-    data["claude_cli"] = path
+    data.update(updates)
     _persist_state(data)
+
+
+def onboarding_state() -> Dict[str, object]:
+    return _load_state()
+
+
+def reset_state() -> None:
+    if STATE_FILE.exists():
+        STATE_FILE.unlink()
 
 
 def _load_state() -> dict:
@@ -62,4 +75,11 @@ def _persist_state(data: dict) -> None:
     STATE_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-__all__ = ["claude_cli_path", "store_claude_cli_path", "STATE_FILE"]
+__all__ = [
+    "claude_cli_path",
+    "store_claude_cli_path",
+    "update_state",
+    "onboarding_state",
+    "reset_state",
+    "STATE_FILE",
+]

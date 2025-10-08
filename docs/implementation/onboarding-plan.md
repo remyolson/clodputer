@@ -31,15 +31,16 @@ This friction is highlighted in `docs/user/quick-start.md`, which guides users t
 - Kept coverage at or above 85% with new onboarding tests (`tests/test_onboarding.py`).
 - Completed Phase 2 guided workflow: onboarding now offers template selection, ensures task/log/archive directories, and provides CLAUDE.md integration with diff preview before applying changes.
 - Delivered Phase 3 automation features: cron preview/install, watcher directory setup + daemon launch, runtime helper prompts, and inline smoke-test execution with result reporting.
+- Completed Phase 4 diagnostics & idempotency: onboarding logs transcripts, runs `doctor` with summaries, updates onboarding metadata, adds `--reset`, and keeps reruns clean.
 
 ### Where We Are
-- Onboarding foundations through Phase 3 automation are live on main (`d9cbb0d` + latest work).
-- Phases 4 and 5 remain: diagnostics enhancements, idempotent reruns, doc refresh, and deeper test coverage.
+- Onboarding foundations through Phase 4 are live on main (`2c98757` + latest work).
+- Phase 5 remains: documentation refresh and broader test coverage for onboarding helpers.
 
 ### Next Steps
-- Advance to Phase 4: teach diagnostics about onboarding state, add idempotent reruns/`--reset`, and persist onboarding transcripts.
-- Tackle Phase 5 documentation & expanded test coverage as the flow settles.
+- Move into Phase 5: elevate docs (Quick Start, installation, CLI reference) and expand automated test coverage for onboarding utilities.
 - Keep iterating on user messaging as automation surfaces mature.
+- Monitor diagnostics output in practice to see if additional checks are needed.
 
 ## Proposed User Flow (CLI)
 
@@ -166,11 +167,11 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 - [x] Run smoke test (execute chosen task once) and render results inline.
 
 ### Phase 4 – Diagnostics & Idempotency
-- [ ] Trigger `clodputer doctor` at the end of onboarding and summarize key findings.
-- [ ] Teach `clodputer doctor` to report persisted CLI path/onboarding state (warn when missing).
-- [ ] Ensure re-running `clodputer init` updates existing config instead of duplicating.
-- [ ] Add `--reset` flag to wipe onboarding cache and start fresh.
-- [ ] Log onboarding transcript to `~/.clodputer/onboarding.log` for support.
+- [x] Trigger `clodputer doctor` at the end of onboarding and summarize key findings.
+- [x] Teach `clodputer doctor` to report persisted CLI path/onboarding state (warn when missing).
+- [x] Ensure re-running `clodputer init` updates existing config instead of duplicating.
+- [x] Add `--reset` flag to wipe onboarding cache and start fresh.
+- [x] Log onboarding transcript to `~/.clodputer/onboarding.log` for support.
 
 ### Phase 5 – Documentation & Tests
 - [ ] Rewrite quick-start and installation docs to highlight `clodputer init`.

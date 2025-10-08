@@ -24,7 +24,15 @@ from .cron import (
     preview_schedule,
     scheduled_tasks,
 )
-from .environment import STATE_FILE, claude_cli_path, store_claude_cli_path
+from .diagnostics import CheckResult, gather_diagnostics
+from .environment import (
+    STATE_FILE,
+    claude_cli_path,
+    onboarding_state,
+    reset_state,
+    store_claude_cli_path,
+    update_state,
+)
 from .executor import TaskExecutionError, TaskExecutor
 from .queue import QUEUE_DIR, ensure_queue_dir
 from .templates import available as available_templates, export as export_template
@@ -38,6 +46,50 @@ from .watcher import (
 
 LOG_DIR = QUEUE_DIR / "logs"
 ARCHIVE_DIR = QUEUE_DIR / "archive"
+
+
+class OnboardingLogger:
+    """Capture onboarding output to a persistent transcript."""
+
+    def __init__(self) -> None:
+        self._original_echo = None
+        self._handle = None
+        self._path: Optional[Path] = None
+
+    def __enter__(self) -> "OnboardingLogger":
+        self._path = _onboarding_log_path()
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._handle = self._path.open("a", encoding="utf-8")
+        self._original_echo = click.echo
+
+        def logging_echo(*args, **kwargs) -> None:
+            if self._original_echo:
+                self._original_echo(*args, **kwargs)
+            self._write_log(args, kwargs)
+
+        click.echo = logging_echo  # type: ignore[assignment]
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        if self._original_echo is not None:
+            click.echo = self._original_echo  # type: ignore[assignment]
+        if self._handle:
+            self._handle.close()
+
+    def _write_log(self, args: tuple, kwargs: dict) -> None:
+        if not self._handle:
+            return
+        target = kwargs.get("file")
+        if target not in (None, sys.stdout):
+            return
+        message = " ".join(str(arg) for arg in args) if args else ""
+        timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        entry = f"[{timestamp}] {message}"
+        if kwargs.get("nl", True):
+            entry += "\n"
+        self._handle.write(entry)
+        self._handle.flush()
+
 
 CLAUDE_MD_SENTINEL = "## Clodputer: Autonomous Task Automation"
 CLAUDE_MD_SECTION = textwrap.dedent(
@@ -61,33 +113,48 @@ CLAUDE_MD_SECTION = textwrap.dedent(
 ).strip()
 
 
-def run_onboarding() -> None:
+def run_onboarding(reset: bool = False) -> None:
     """Execute the interactive onboarding sequence."""
 
-    click.echo("\n=== Clodputer Onboarding ===")
+    removed_paths = _reset_onboarding_state() if reset else []
 
-    _ensure_directories()
+    with OnboardingLogger():
+        click.echo("\n=== Clodputer Onboarding ===")
 
-    click.echo("\nClaude CLI configuration")
-    selected_path = _choose_claude_cli()
-    _verify_claude_cli(selected_path)
-    store_claude_cli_path(selected_path)
-    click.echo(f"  ✓ Stored Claude CLI path in {STATE_FILE}")
+        if reset:
+            if removed_paths:
+                click.echo("Reset onboarding state:")
+                for path in removed_paths:
+                    click.echo(f"  • Cleared {path}")
+            else:
+                click.echo("No existing onboarding state found to reset.")
 
-    _offer_template_install()
-    _offer_claude_md_update()
+        _ensure_directories()
 
-    configs = _offer_automation()
-    _offer_runtime_shortcuts()
-    _offer_smoke_test(configs)
+        click.echo("\nClaude CLI configuration")
+        selected_path = _choose_claude_cli()
+        _verify_claude_cli(selected_path)
+        store_claude_cli_path(selected_path)
+        click.echo(f"  ✓ Stored Claude CLI path in {STATE_FILE}")
 
-    click.echo("\nSetup complete! Next steps:")
-    click.echo("  • Add tasks to ~/.clodputer/tasks/ (try `clodputer template list`).")
-    click.echo("  • Run `clodputer run <task>` to execute a task once.")
-    click.echo(
-        "  • Use `clodputer install` and `clodputer watch` when you're ready for automation."
-    )
-    click.echo("  • Re-run `clodputer init` anytime to update settings.")
+        _offer_template_install()
+        _offer_claude_md_update()
+
+        configs = _offer_automation()
+        _offer_runtime_shortcuts()
+        _offer_smoke_test(configs)
+
+        click.echo("\nSetup complete! Next steps:")
+        click.echo("  • Add tasks to ~/.clodputer/tasks/ (try `clodputer template list`).")
+        click.echo("  • Run `clodputer run <task>` to execute a task once.")
+        click.echo(
+            "  • Use `clodputer install` and `clodputer watch` when you're ready for automation."
+        )
+        click.echo("  • Re-run `clodputer init` anytime to update settings.")
+
+        results = gather_diagnostics()
+        _render_doctor_summary(results)
+        _record_onboarding_completion()
 
 
 def _ensure_directories() -> None:
@@ -99,6 +166,10 @@ def _ensure_directories() -> None:
     click.echo(f"  ✓ Ensured tasks directory at {TASKS_DIR}")
     click.echo(f"  ✓ Ensured logs directory at {LOG_DIR}")
     click.echo(f"  ✓ Ensured archive directory at {ARCHIVE_DIR}")
+
+
+def _onboarding_log_path() -> Path:
+    return QUEUE_DIR / "onboarding.log"
 
 
 def _choose_claude_cli() -> str:
@@ -449,6 +520,49 @@ def _format_seconds(seconds: float) -> str:
     if minutes:
         return f"{minutes}m{remainder:02d}s"
     return f"{remainder}s"
+
+
+def _render_doctor_summary(results: Sequence[CheckResult]) -> None:
+    click.echo("\nDoctor summary")
+    total = len(results)
+    passed = sum(1 for result in results if result.passed)
+    click.echo(f"  • {passed}/{total} checks passing.")
+
+    if passed == total:
+        click.echo("  ✅ All diagnostics passed.")
+        return
+
+    click.echo("  ⚠️ Issues detected:")
+    for result in results:
+        if result.passed:
+            continue
+        click.echo(f"  ❌ {result.name}")
+        if result.details:
+            for detail in result.details:
+                click.echo(f"      {detail}")
+    click.echo("  ℹ️ Run `clodputer doctor` for full diagnostics.")
+
+
+def _record_onboarding_completion() -> None:
+    state = onboarding_state()
+    try:
+        runs = int(state.get("onboarding_runs", 0) or 0)
+    except (TypeError, ValueError):
+        runs = 0
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    update_state({"onboarding_last_run": timestamp, "onboarding_runs": runs + 1})
+
+
+def _reset_onboarding_state() -> List[str]:
+    removed: List[str] = []
+    if STATE_FILE.exists():
+        reset_state()
+        removed.append(str(STATE_FILE))
+    log_path = _onboarding_log_path()
+    if log_path.exists():
+        log_path.unlink()
+        removed.append(str(log_path))
+    return removed
 
 
 def _detect_claude_md_candidates() -> list[Path]:

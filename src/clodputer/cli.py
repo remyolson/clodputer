@@ -23,7 +23,7 @@ import time
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, Optional
 
 import click
 import json
@@ -34,26 +34,24 @@ from .cron import (
     CRON_SECTION_BEGIN,
     CRON_SECTION_END,
     CronError,
-    cron_section_present,
     generate_cron_section,
     install_cron_jobs,
-    is_cron_daemon_running,
     preview_schedule,
     read_crontab,
     scheduled_tasks,
     uninstall_cron_jobs,
 )
 from .dashboard import run_dashboard
+from .diagnostics import gather_diagnostics
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
 from .onboarding import run_onboarding
-from .queue import QueueCorruptionError, QueueManager, lockfile_status
+from .queue import QueueManager
 from .templates import available as available_templates, export as export_template
 from .watcher import (
     WATCHER_LOG_FILE,
     WatcherError,
     file_watch_tasks,
-    is_daemon_running as watcher_is_running,
     run_watch_service,
     start_daemon as start_watch_daemon,
     stop_daemon as stop_watch_daemon,
@@ -132,11 +130,16 @@ def cli() -> None:
 
 
 @cli.command()
-def init() -> None:
+@click.option(
+    "--reset",
+    is_flag=True,
+    help="Reset stored onboarding state before running the guided flow.",
+)
+def init(reset: bool) -> None:
     """Run the guided onboarding workflow."""
 
     try:
-        run_onboarding()
+        run_onboarding(reset=reset)
     except click.ClickException:
         raise
     except Exception as exc:  # pragma: no cover - defensive guard
@@ -616,123 +619,16 @@ def status() -> None:
 @cli.command()
 def doctor() -> None:
     """Run diagnostics and output pass/fail checks."""
-    checks = []
-
-    ensure_tasks_dir()
-    checks.append(("Tasks directory exists", lambda: Path.home().joinpath(".clodputer").exists()))
-
-    lock_status = lockfile_status()
-    checks.append(
-        (
-            "Queue lockfile",
-            lambda: (not lock_status["locked"])
-            or (lock_status["locked"] and not lock_status["stale"]),
-        )
-    )
-
-    queue_ok, queue_errors = True, []
-    try:
-        queue_manager = QueueManager(auto_lock=False)
-        queue_ok, queue_errors = queue_manager.validate_state()
-    except QueueCorruptionError as exc:
-        queue_ok = False
-        queue_errors = [str(exc)]
-
-    checks.append(("Queue integrity", lambda: queue_ok))
-
-    configs, config_errors = validate_all_tasks()
-    scheduled = scheduled_tasks(configs)
-    watch_tasks = file_watch_tasks(configs)
-
-    cron_definition_errors: List[str] = []
-    schedule_preview_errors: List[str] = []
-
-    def cron_definitions_valid() -> bool:
-        if not scheduled:
-            return True
-        try:
-            generate_cron_section(scheduled)
-            return True
-        except CronError as exc:
-            cron_definition_errors.append(str(exc))
-            return False
-
-    def schedule_preview_ok() -> bool:
-        if not scheduled:
-            return True
-        try:
-            for entry in scheduled:
-                preview_schedule(entry, count=1)
-            return True
-        except CronError as exc:
-            schedule_preview_errors.append(str(exc))
-            return False
-
-    def watch_paths_exist() -> bool:
-        if not watch_tasks:
-            return True
-        for task in watch_tasks:
-            trigger = task.trigger
-            assert trigger is not None and trigger.type == "file_watch"
-            if not Path(trigger.path).expanduser().exists():
-                return False
-        return True
-
-    checks.append(("Task configs valid", lambda: not config_errors))
-
-    checks.append(("Cron daemon running", is_cron_daemon_running))
-    checks.append(
-        (
-            "Clodputer cron jobs installed",
-            lambda: not scheduled or cron_section_present(),
-        )
-    )
-    checks.append(("Cron job definitions valid", cron_definitions_valid))
-    checks.append(("Cron schedule preview", schedule_preview_ok))
-
-    checks.append(
-        (
-            "Watcher daemon running",
-            lambda: not watch_tasks or watcher_is_running(),
-        )
-    )
-    checks.append(("Watch paths exist", watch_paths_exist))
-    checks.append(("Watcher log directory available", lambda: WATCHER_LOG_FILE.parent.exists()))
-    if LOG_FILE.exists():
-        checks.append(("Execution log readable", lambda: LOG_FILE.exists()))
-
+    results = gather_diagnostics()
     all_passed = True
-    for description, predicate in checks:
-        try:
-            result = predicate()
-        except Exception as exc:  # pragma: no cover
-            result = False
-            extra = f" (error: {exc})"
-        else:
-            extra = ""
-        symbol = "✅" if result else "❌"
-        click.echo(f"{symbol} {description}{extra}")
-        all_passed = all_passed and result
 
-    if not queue_ok and queue_errors:
-        click.echo("\nQueue issues:")
-        for issue in queue_errors:
-            click.echo(f" • {issue}")
-
-    if config_errors:
-        click.echo("\nInvalid task configs:")
-        for path, err in config_errors:
-            click.echo(f" • {path}: {err}")
-
-    if cron_definition_errors:
-        click.echo("\nCron definition issues:")
-        for err in cron_definition_errors:
-            click.echo(f" • {err}")
-
-    if schedule_preview_errors:
-        click.echo("\nCron preview issues:")
-        for err in schedule_preview_errors:
-            click.echo(f" • {err}")
+    for result in results:
+        symbol = "✅" if result.passed else "❌"
+        click.echo(f"{symbol} {result.name}")
+        if result.details:
+            for detail in result.details:
+                click.echo(f"   • {detail}")
+        all_passed = all_passed and result.passed
 
     sys.exit(0 if all_passed else 1)
 
