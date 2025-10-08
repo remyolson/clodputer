@@ -118,6 +118,14 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 
 ## Implementation Phases & Checklists
 
+### Phase 0 – Codebase Alignment & Cleanup
+- [ ] Remove or relocate legacy sample files (e.g., root-level `email-management.yaml`) in favor of packaged templates.
+- [ ] Wire the new `clodputer.templates` module into the CLI (list/export helper) so onboarding can reuse existing functions.
+- [ ] Centralize Claude CLI path resolution in a shared utility consumed by executor, cron, and onboarding.
+- [ ] Update cron/environment handling to read the persisted CLI path and avoid mandatory `CLODPUTER_CLAUDE_BIN` exports.
+- [ ] Review documentation references to manual MCP secret files (`docs/user/mcp-authentication.md`, quick start, installation) and align messaging with Claude Code–managed creds.
+- [ ] Run `ruff`, `pytest`, and `pytest --cov` to ensure a clean baseline before onboarding changes.
+
 ### Phase 1 – Foundations
 - [ ] Introduce `clodputer.init` Click command with scaffolding and logging.
 - [ ] Implement path detection helpers for Claude CLI (search PATH + common installs).
@@ -138,6 +146,7 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 
 ### Phase 4 – Diagnostics & Idempotency
 - [ ] Trigger `clodputer doctor` at the end of onboarding and summarize key findings.
+- [ ] Teach `clodputer doctor` to report persisted CLI path/onboarding state (warn when missing).
 - [ ] Ensure re-running `clodputer init` updates existing config instead of duplicating.
 - [ ] Add `--reset` flag to wipe onboarding cache and start fresh.
 - [ ] Log onboarding transcript to `~/.clodputer/onboarding.log` for support.
