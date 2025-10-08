@@ -666,7 +666,29 @@ def _render_smoke_test_result(result: ExecutionResult) -> None:
     if getattr(result, "output_parse_error", None):
         click.echo(f"    Output parse error: {result.output_parse_error}")
     elif getattr(result, "output_json", None) is not None:
-        click.echo(f"    Output JSON: {result.output_json}")
+        # Show a concise summary instead of dumping the entire JSON
+        output = result.output_json
+        if isinstance(output, dict):
+            # Extract key metrics from the output
+            if "result" in output:
+                result_text = output["result"]
+                # Try to show a brief summary
+                lines = str(result_text).split('\n')[:3]  # First 3 lines
+                summary = '\n    '.join(lines)
+                click.echo(f"    Result preview: {summary}...")
+            if "num_turns" in output:
+                click.echo(f"    Turns: {output['num_turns']}")
+            if "total_cost_usd" in output:
+                cost = output['total_cost_usd']
+                click.echo(f"    Cost: ${cost:.4f}")
+        else:
+            # Fallback for non-dict output
+            output_str = str(output)
+            if len(output_str) > 200:
+                click.echo(f"    Output: {output_str[:200]}...")
+            else:
+                click.echo(f"    Output: {output_str}")
+        click.echo(f"    💡 View full output with: clodputer logs --task {getattr(result, 'task_name', '')}")
     if getattr(result, "error", None):
         click.echo(f"    Error: {result.error}")
     cleanup = getattr(result, "cleanup", None)
@@ -706,24 +728,48 @@ def _check_network_connectivity() -> bool:
 
 
 def _render_doctor_summary(results: Sequence[CheckResult]) -> None:
-    click.echo("\nDoctor summary")
-    total = len(results)
-    passed = sum(1 for result in results if result.passed)
-    click.echo(f"  • {passed}/{total} checks passing.")
+    """Render a summary of diagnostic checks, filtering out optional ones during onboarding."""
+    # Filter out optional checks that might fail during onboarding
+    # These are user choices, not actual problems
+    optional_check_names = {
+        "Clodputer cron jobs installed",  # User may choose not to install cron
+        "Onboarding completion recorded",  # Will be set after this function returns
+    }
 
-    if passed == total:
-        click.echo("  ✅ All diagnostics passed.")
-        return
+    # Show all checks but mark optional ones differently
+    required_results = [r for r in results if r.name not in optional_check_names]
+    optional_results = [r for r in results if r.name in optional_check_names]
 
-    click.echo("  ⚠️ Issues detected:")
-    for result in results:
-        if result.passed:
-            continue
-        click.echo(f"  ❌ {result.name}")
-        if result.details:
-            for detail in result.details:
-                click.echo(f"      {detail}")
-    click.echo("  ℹ️ Run `clodputer doctor` for full diagnostics.")
+    click.echo("\nSetup complete! 🎉")
+
+    # Show required checks
+    if required_results:
+        required_passed = sum(1 for r in required_results if r.passed)
+        required_total = len(required_results)
+        click.echo(f"  • {required_passed}/{required_total} required checks passing.")
+
+        # Show any failing required checks
+        failing_required = [r for r in required_results if not r.passed]
+        if failing_required:
+            click.echo("  ⚠️ Issues detected:")
+            for result in failing_required:
+                click.echo(f"  ❌ {result.name}")
+                if result.details:
+                    for detail in result.details:
+                        click.echo(f"      {detail}")
+
+    # Show optional items status without treating them as errors
+    if optional_results:
+        skipped_optional = [r for r in optional_results if not r.passed]
+        if skipped_optional:
+            click.echo("  ℹ️  Optional setup items:")
+            for result in skipped_optional:
+                # Use a neutral indicator, not an error symbol
+                if "cron" in result.name.lower():
+                    click.echo(f"  ⊝ Cron scheduling not installed (optional)")
+                    click.echo(f"      Run `clodputer install` to enable scheduled tasks")
+
+    click.echo("  💡 Run `clodputer doctor` anytime for full diagnostics.")
 
 
 def _record_onboarding_completion() -> None:
@@ -733,7 +779,11 @@ def _record_onboarding_completion() -> None:
     except (TypeError, ValueError):
         runs = 0
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    update_state({"onboarding_last_run": timestamp, "onboarding_runs": runs + 1})
+    update_state({
+        "onboarding_last_run": timestamp,
+        "onboarding_runs": runs + 1,
+        "onboarding_completed_at": timestamp
+    })
 
 
 def _reset_onboarding_state() -> List[str]:

@@ -4,21 +4,26 @@ This guide explains how to uninstall Clodputer completely or reset it for fresh 
 
 ## Quick Uninstall (Complete Removal)
 
-To completely remove Clodputer from your system:
+To completely remove Clodputer from your system, **copy and paste this single line**:
 
 ```bash
-# Stop any running automation
+clodputer uninstall 2>/dev/null; clodputer watch --stop 2>/dev/null; pipx uninstall clodputer; rm -rf ~/.clodputer; echo "✅ Clodputer completely removed"
+```
+
+<details>
+<summary>Or run these commands step-by-step</summary>
+
+```bash
 clodputer uninstall 2>/dev/null
 clodputer watch --stop 2>/dev/null
-
-# Uninstall the package
 pipx uninstall clodputer
-
-# Remove all data and state
 rm -rf ~/.clodputer
-
 echo "✅ Clodputer completely removed"
 ```
+
+**Note**: Run each line separately, not all at once with the comments.
+
+</details>
 
 ## What Gets Removed
 
