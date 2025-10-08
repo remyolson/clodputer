@@ -54,25 +54,26 @@ pip install -e ".[dev]"
 
 This installs both runtime and development dependencies (Click, Pydantic, watchdog, rumps, pytest, ruff, etc.).
 
-### 3.3 Verify the CLI
+### 3.3 Verify the CLI and Run Onboarding
 
 ```bash
 clodputer --version
 clodputer doctor
-clodputer init
+clodputer init        # guided onboarding
 ```
 
-- `clodputer --version` prints the current package version.
-- `clodputer doctor` runs basic diagnostics (tasks directory, queue integrity, cron/watch status).
-- `clodputer init` runs the guided onboarding workflow.
+- `clodputer doctor` checks base directories, queue integrity, cron/watch status, and the stored Claude CLI path.
+- `clodputer init` launches the guided onboarding flow that sets up directories, templates, automation, smoke tests, and a summary doctor report. Pass `--reset` to clear existing state (`~/.clodputer/env.json`, onboarding log) before re-running.
 
-## 4. Create the Tasks Directory
+## 4. Create the Tasks Directory (Optional)
+
+`clodputer init` automatically creates `~/.clodputer/tasks`. Only run the following if you need to pre-create folders in automated scripts:
 
 ```bash
 mkdir -p ~/.clodputer/tasks
 ```
 
-Place YAML task definitions here (see [Configuration Reference](configuration.md)).
+Placed YAML task definitions acquire the same schema described in the [Configuration Reference](configuration.md).
 
 ## 5. Optional: Menu Bar App
 
@@ -94,6 +95,4 @@ pip uninstall clodputer
 
 Delete the repository and the `~/.clodputer/` directory if you no longer need local state or archived logs.
 
----
-
-Next step: follow the [Quick Start Guide](quick-start.md) to create your first automated task.
+After installing, continue with the [Quick Start Guide](quick-start.md) to explore templates, automation, and the dashboard.

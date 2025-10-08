@@ -1,6 +1,6 @@
 # Quick Start
 
-This guide walks through installing Clodputer, creating your first automated task, and exploring the core tooling (cron, file watcher, dashboard).
+This guide walks you from a clean install to a running task in a few minutes using the `clodputer init` onboarding flow.
 
 ---
 
@@ -9,149 +9,109 @@ This guide walks through installing Clodputer, creating your first automated tas
 - macOS 13+ (Ventura or newer)
 - Python 3.9 or later (`python3 --version`)
 - Claude Code CLI installed and authenticated (`which claude`)
-- Internet access for package installation
+- Internet access for package installs
 
-Optional but recommended:
+Optional:
 
-- `osascript` permissions for the menu bar dashboard.
+- Terminal automation permission (`osascript`) for launching the dashboard/menu bar.
 
 ---
 
 ## 2. Install Clodputer
 
-Pick one of the installation methods:
-
-### PyPI
+Pick the method that fits your workflow:
 
 ```bash
+# PyPI
 python3 -m pip install clodputer
-```
 
-### Homebrew tap
-
-```bash
+# —OR— Homebrew tap
 brew tap remyolson/clodputer https://github.com/remyolson/clodputer.git
 brew install clodputer
 ```
 
-### From source (for contributors)
+Working from source? Clone the repo, create a virtual environment, and run:
 
 ```bash
-git clone https://github.com/remyolson/clodputer.git
-cd clodputer
-python3 -m venv .venv
-source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-After installation, run the guided setup:
+Verify the CLI is reachable:
+
+```bash
+clodputer --version
+```
+
+---
+
+## 3. Run the Guided Onboarding
 
 ```bash
 clodputer init
 ```
 
-This detects the Claude CLI path, prepares directories, and stores the
-configuration for future commands.
+The wizard will:
 
-## 3. Bootstrap Your Workspace
+- Detect and validate your Claude CLI installation.
+- Create the full `~/.clodputer` directory structure (tasks, logs, archive).
+- Copy starter templates on request.
+- Offer optional automation setup (cron, file watcher, dashboard/menu launcher).
+- Run a smoke test and display a concise doctor summary.
 
-1. Create the tasks directory:
-   ```bash
-   mkdir -p ~/.clodputer/tasks
-   ```
+Need to re-run onboarding later? Just execute `clodputer init` again. To wipe the saved state and start fresh, pass `--reset`.
 
-2. (Optional) Copy a starter template. The repository root exposes templates as symlinks for easy browsing:
-   ```bash
-   cp templates/daily-email.yaml ~/.clodputer/tasks/email-summary.yaml
-   ```
-
-   > Need to provide project-specific tokens or IDs? Configure them through Claude
-   > Code first. Only follow the advanced override described in
-   > [MCP authentication](mcp-authentication.md) if Claude Code’s configuration tools
-   > cannot express your use case.
-
-The packaged versions live under `src/clodputer/templates/` and ship with the Python package to keep `pip install clodputer` users in sync.
+Every run is logged to `~/.clodputer/onboarding.log` for future reference.
 
 ---
 
-## 4. Run Your First Task
+## 4. Inspect Your Workspace
 
-Execute the imported template:
+After onboarding completes you can review what was created:
+
+- `~/.clodputer/tasks/` – task definitions copied or created by the wizard.
+- `~/.clodputer/env.json` – persisted Claude CLI path and onboarding metadata.
+- `~/.clodputer/onboarding.log` – transcript of the most recent onboarding session.
+
+To list available packaged templates at any point:
 
 ```bash
-clodputer run email-summary
+clodputer template list
 ```
 
-You should see:
+Copy an additional template:
 
-- A ✅ status line in the terminal.
-- `clodputer status` reporting an idle queue and the recent execution.
-- Structured JSON events in `~/.clodputer/execution.log`.
-
----
-
-## 5. Schedule with Cron
-
-1. Open `~/.clodputer/tasks/email-summary.yaml` and add a schedule:
-   ```yaml
-   schedule:
-     type: cron
-     expression: "0 8 * * *"
-     timezone: America/Los_Angeles
-   ```
-
-2. Install or refresh cron jobs:
-   ```bash
-   clodputer install
-   ```
-
-3. Inspect the crontab section and upcoming runs:
-   ```bash
-   crontab -l
-   clodputer schedule-preview email-summary --count 3
-   tail -f ~/.clodputer/cron.log
-   ```
+```bash
+clodputer template export daily-email.yaml
+```
 
 ---
 
-## 6. Watch a Folder for Changes
+## 5. Run a Task Manually
 
-1. Create another task (`~/.clodputer/tasks/inbox-watcher.yaml`):
-   ```yaml
-   name: inbox-watcher
-   enabled: true
-   trigger:
-     type: file_watch
-     path: ~/WatchedInbox
-     pattern: "*.md"
-     event: created
-     debounce: 500
-   task:
-     prompt: |
-       Read the newly added Markdown file and output
-       {"file": "...", "status": "processed"}.
-     allowed_tools:
-       - Read
-       - Write
-   ```
+Execute one of the imported templates to confirm everything works:
 
-2. Start the watcher in the background:
-   ```bash
-   mkdir -p ~/WatchedInbox
-   clodputer watch --daemon
-   ```
+```bash
+clodputer run <task-name>
+```
 
-3. Drop a `.md` file into `~/WatchedInbox`. Check activity:
-   ```bash
-   clodputer queue
-   clodputer status
-   tail -f ~/.clodputer/watcher.log
-   ```
+Use supporting commands to check status:
 
-4. Stop the watcher when finished:
-   ```bash
-   clodputer watch --stop
-   ```
+```bash
+clodputer status        # Queue + activity summary
+clodputer logs --tail 5 # Recent structured events
+clodputer doctor        # Full diagnostics report
+```
+
+---
+
+## 6. Enable Automation
+
+If you opted into cron or watcher setup during onboarding you can skip this section—otherwise:
+
+- **Cron**: add/adjust the `schedule` block inside a task YAML, then run `clodputer install`. Preview upcoming runs with `clodputer schedule-preview <task> --count 3`.
+- **File watcher**: ensure the `trigger` block is defined, then start monitoring with `clodputer watch --daemon`. Stop it later with `clodputer watch --stop`.
+
+Both automation modes reuse the Claude CLI path and state configured during onboarding—no extra environment variables required.
 
 ---
 
