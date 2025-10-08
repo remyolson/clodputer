@@ -1,6 +1,5 @@
 """Tests for onboarding phases: templates, CLAUDE.md, automation, runtime shortcuts, and smoke tests."""
 
-import json
 from pathlib import Path
 from types import SimpleNamespace
 

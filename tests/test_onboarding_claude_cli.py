@@ -31,7 +31,6 @@ def test_choose_claude_cli_reprompts_until_valid(monkeypatch, tmp_path):
 def test_choose_claude_cli_handles_path_errors(monkeypatch, tmp_path):
     """Test that _choose_claude_cli handles OS/ValueError gracefully."""
     from clodputer import onboarding
-    from pathlib import Path
 
     valid_path = tmp_path / "bin" / "claude"
     valid_path.parent.mkdir(parents=True, exist_ok=True)
@@ -99,8 +98,6 @@ def test_verify_claude_cli_failure(monkeypatch):
 
 def test_verify_claude_cli_timeout(monkeypatch):
     """Test that Claude CLI verification handles timeouts gracefully."""
-    import subprocess
-
     from clodputer import onboarding
 
     def timeout_run(*args, **kwargs):

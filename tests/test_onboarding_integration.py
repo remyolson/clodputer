@@ -6,9 +6,6 @@ using a real temporary directory structure to verify all components work togethe
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
-
-import pytest
 
 
 def test_full_directory_and_state_setup(monkeypatch, tmp_path):
