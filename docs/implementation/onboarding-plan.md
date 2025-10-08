@@ -20,6 +20,27 @@ This friction is highlighted in `docs/user/quick-start.md`, which guides users t
 5. **Self-service automation setup** – offer options to schedule a sample task, start the watcher, and launch the dashboard.
 6. **Updated documentation** reflecting the new flow while retaining advanced manual steps as references.
 
+## Status Update – Onboarding Feature Track
+
+### What's Done
+- Completed Phase 0 and Phase 1 of the onboarding plan.
+- Added `clodputer init`: interactive setup that verifies and records the Claude CLI path, prepares `~/.clodputer` directories, and logs state for reuse.
+- Centralized Claude CLI detection in `src/clodputer/environment.py`, with executor and cron now reading the persisted path so no manual env vars are needed.
+- Added `clodputer template list/export` to copy bundled task templates; removed the root-level `email-management.yaml`.
+- Updated user docs to point newcomers to `clodputer init`, framing MCP guides as advanced overrides only.
+- Kept coverage at or above 85% with new onboarding tests (`tests/test_onboarding.py`).
+- Completed Phase 2 guided workflow: onboarding now offers template selection, ensures task/log/archive directories, and provides CLAUDE.md integration with diff preview before applying changes.
+- Delivered Phase 3 automation features: cron preview/install, watcher directory setup + daemon launch, runtime helper prompts, and inline smoke-test execution with result reporting.
+
+### Where We Are
+- Onboarding foundations through Phase 3 automation are live on main (`d9cbb0d` + latest work).
+- Phases 4 and 5 remain: diagnostics enhancements, idempotent reruns, doc refresh, and deeper test coverage.
+
+### Next Steps
+- Advance to Phase 4: teach diagnostics about onboarding state, add idempotent reruns/`--reset`, and persist onboarding transcripts.
+- Tackle Phase 5 documentation & expanded test coverage as the flow settles.
+- Keep iterating on user messaging as automation surfaces mature.
+
 ## Proposed User Flow (CLI)
 
 ```
@@ -133,16 +154,16 @@ This plan shifts Clodputer’s onboarding from a manual, documentation-driven ch
 - [x] Update executor/cron to fallback to persisted paths when env vars are absent.
 
 ### Phase 2 – Guided Setup Workflow
-- [ ] Build interactive prompts (yes/no/options) for key onboarding decisions.
-- [ ] Implement directory creation (`tasks`, `logs`, `archive`) within onboarding.
-- [ ] Sync packaged templates to user space with selection UI (choose starter task).
-- [ ] Integrate CLAUDE.md update step, including diff preview before applying.
+- [x] Build interactive prompts (yes/no/options) for key onboarding decisions.
+- [x] Implement directory creation (`tasks`, `logs`, `archive`) within onboarding.
+- [x] Sync packaged templates to user space with selection UI (choose starter task).
+- [x] Integrate CLAUDE.md update step, including diff preview before applying.
 
 ### Phase 3 – Automation Enablement
-- [ ] Add cron setup option: show proposed entries, confirm, then install.
-- [ ] Add file watcher setup: configure directory/pattern interactively, start daemon.
-- [ ] Provide ability to launch dashboard/menu app with clear permission guidance.
-- [ ] Run smoke test (execute chosen task once) and render results inline.
+- [x] Add cron setup option: show proposed entries, confirm, then install.
+- [x] Add file watcher setup: configure directory/pattern interactively, start daemon.
+- [x] Provide ability to launch dashboard/menu app with clear permission guidance.
+- [x] Run smoke test (execute chosen task once) and render results inline.
 
 ### Phase 4 – Diagnostics & Idempotency
 - [ ] Trigger `clodputer doctor` at the end of onboarding and summarize key findings.
