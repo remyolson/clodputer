@@ -1,34 +1,71 @@
 # Installation Guide
 
-Clodputer is currently in active development. You can install it via PyPI, the
-Homebrew tap, or from source.
+Clodputer is currently in active development. The recommended installation method is **pipx**, which handles virtualenv isolation automatically.
 
 ## Prerequisites
 
 - **macOS 13+** (Ventura or newer)
 - **Python 3.9 or later** (`python3 --version`)
 - **Claude Code CLI** installed (`which claude`)
-- **pip** and **virtualenv** tooling available
+- **pipx** (installation instructions below)
 
-## 1. Install from PyPI
+## 1. Install via pipx (Recommended)
+
+### Step 1: Install pipx
+
+If you don't have pipx yet:
 
 ```bash
-python3 -m pip install clodputer
+# Using Homebrew
+brew install pipx
+pipx ensurepath
+
+# Or using pip
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+```
+
+After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`) to update your PATH.
+
+### Step 2: Install Clodputer
+
+```bash
+# Install from GitHub
+pipx install git+https://github.com/remyolson/clodputer.git
+
+# Verify installation
 clodputer --version
 ```
 
-This is the easiest option if you simply want the CLI.
+**Why pipx?**
+- ✅ Automatic virtualenv isolation (no dependency conflicts)
+- ✅ Designed specifically for Python CLI applications
+- ✅ Easy upgrades: `pipx upgrade clodputer`
+- ✅ Works on macOS, Linux, and Windows
+- ✅ No need for Xcode Command Line Tools
 
-## 2. Install via Homebrew
+### Upgrading
 
 ```bash
-brew tap remyolson/clodputer https://github.com/remyolson/clodputer.git
-brew install clodputer
+pipx upgrade clodputer
 ```
 
-Upgrades follow the usual Homebrew workflow (`brew update && brew upgrade clodputer`).
+### Uninstalling
 
-## 3. Install from Source
+```bash
+pipx uninstall clodputer
+```
+
+## 2. Install from PyPI (Coming Soon)
+
+Once published to PyPI, installation will be even simpler:
+
+```bash
+pipx install clodputer
+clodputer --version
+```
+
+## 3. Install from Source (For Development)
 
 Clone the repository when hacking on Clodputer itself:
 
@@ -103,14 +140,24 @@ clodputer menu
 
 You should see the Clodputer icon in the menu bar (🟢/🔵/🔴).
 
-## Uninstallation
+## Complete Uninstallation
 
-To remove the editable install:
+### Remove Clodputer
 
 ```bash
+# If installed with pipx
+pipx uninstall clodputer
+
+# If installed from source
 pip uninstall clodputer
 ```
 
-Delete the repository and the `~/.clodputer/` directory if you no longer need local state or archived logs.
+### Clean Up Data (Optional)
+
+Delete the `~/.clodputer/` directory if you no longer need local state or archived logs:
+
+```bash
+rm -rf ~/.clodputer
+```
 
 After installing, continue with the [Quick Start Guide](quick-start.md) to explore templates, automation, and the dashboard.

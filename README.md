@@ -84,23 +84,31 @@ open docs/implementation/PROGRESS.md
 
 ## Installation
 
-### PyPI (recommended)
+### pipx (Recommended)
 
 ```bash
-python3 -m pip install clodputer
+# Install pipx if you don't have it
+brew install pipx
+pipx ensurepath
+
+# Install clodputer
+pipx install git+https://github.com/remyolson/clodputer.git
+
+# Verify installation
+clodputer --version
 ```
 
-### Homebrew tap
+**Why pipx?** It automatically handles virtualenv isolation and is designed specifically for Python CLI tools. Works on macOS, Linux, and Windows.
+
+### PyPI (Coming Soon)
+
+Once published, installation will be even simpler:
 
 ```bash
-brew tap remyolson/clodputer https://github.com/remyolson/clodputer.git
-brew install clodputer
+pipx install clodputer
 ```
 
-The tap uses a Python virtualenv to isolate dependencies; upgrades follow the
-standard Homebrew flow (`brew update && brew upgrade clodputer`).
-
-### From source
+### From Source (For Development)
 
 ```bash
 git clone https://github.com/remyolson/clodputer.git
@@ -110,8 +118,7 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-See the [installation guide](docs/user/installation.md) for full details. `clodputer init`
-will guide you through first-time setup; manual environment variables are no longer required for most users.
+See the [installation guide](docs/user/installation.md) for full details. After installation, run `clodputer init` for guided first-time setup.
 
 ## CLI Overview
 
