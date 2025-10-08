@@ -71,6 +71,14 @@ on_failure:
 
 Start the watcher in the background with `clodputer watch --daemon`. Logs are stored in `~/.clodputer/watcher.log`.
 
+### Interval Trigger (`trigger.type: interval`)
+
+| Field    | Required | Notes                                                 |
+|----------|----------|-------------------------------------------------------|
+| `seconds`| ✅       | Must be a multiple of 60 (minimum 60, maximum 86400). |
+
+Interval triggers are converted into cron entries when you run `clodputer install`. Use `clodputer schedule-preview <task>` to see the next occurrences after installation.
+
 ### Task Definition (`task`)
 
 - **Prompt** should produce deterministic JSON where possible (easy to parse downstream).

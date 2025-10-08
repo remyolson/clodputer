@@ -5,10 +5,11 @@ This document charts the next wave of improvements, using the original planning 
 ## Phase 4: Advanced Scheduling & Reliability
 
 ### 4.1 Multi-Trigger Scheduling (ref. 05-finalized-specification.md §“Future Enhancements”)
-- [ ] Extend cron parser to support named schedules (e.g., `@workdays`, `@weekends`).
-- [ ] Integrate interval-based triggers (`trigger.type: interval`) deferred from Phase 1.
-- [ ] Expose schedule simulation command (`clodputer schedule preview <task>`).
-- [ ] Update `doctor` to validate upcoming runs across cron/interval triggers.
+- [x] Extend cron parser to support named schedules (e.g., `@workdays`, `@weekends`).
+- [x] Integrate interval-based triggers (`trigger.type: interval`) deferred from Phase 1.
+- [x] Expose schedule simulation command (`clodputer schedule-preview <task>`).
+- [x] Update `doctor` to validate upcoming runs across cron/interval triggers.
+- **Deliverables**: Alias resolution with comments in crontab, interval → cron conversion, `schedule-preview` CLI with `croniter`, doctor checks for cron preview, docs/examples refreshed.
 
 ### 4.2 Smart Queue Management (ref. planning/09-safety-features.md “Resource Management”)
 - [ ] Add optional concurrency limits with resource heuristics (config-driven).

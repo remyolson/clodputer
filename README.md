@@ -150,6 +150,7 @@ The following walkthroughs mirror the templates and workflows defined in the pla
    clodputer install
    crontab -l
    tail -f ~/.clodputer/cron.log
+   clodputer schedule-preview email-summary --count 3
    ```
    Cron output demonstrates the scheduling flow described in [08-installation-and-integration.md](docs/planning/08-installation-and-integration.md).
 

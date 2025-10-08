@@ -18,10 +18,13 @@ import shlex
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
 import psutil
+from croniter import croniter
+from zoneinfo import ZoneInfo
 
 from .config import TaskConfig
 from .queue import ensure_queue_dir
@@ -43,7 +46,21 @@ CRON_MACROS = {
     "@hourly",
 }
 
+CRON_ALIAS_MAP = {
+    "@workdays": "0 9 * * 1-5",
+    "@weekdays": "0 9 * * 1-5",
+    "@weekends": "0 9 * * 6,0",
+}
+
 CRON_FIELD_PATTERN = re.compile(r"^(\*|\d+|\d+-\d+|\*/\d+|\d+(,\d+)*)(/(\d+))?$")
+
+
+@dataclass
+class ScheduledEntry:
+    task: TaskConfig
+    expression: str
+    timezone: Optional[str] = None
+    note: Optional[str] = None
 
 
 class CronError(RuntimeError):
@@ -58,6 +75,8 @@ def validate_cron_expression(expression: str) -> bool:
     expression = expression.strip()
     if not expression:
         return False
+    if expression in CRON_ALIAS_MAP:
+        expression = CRON_ALIAS_MAP[expression]
     if expression in CRON_MACROS:
         return True
     fields = expression.split()
@@ -69,6 +88,32 @@ def validate_cron_expression(expression: str) -> bool:
         if not CRON_FIELD_PATTERN.match(field):
             return False
     return True
+
+
+def resolve_cron_expression(expression: str) -> tuple[str, Optional[str]]:
+    expr = expression.strip()
+    if expr in CRON_ALIAS_MAP:
+        resolved = CRON_ALIAS_MAP[expr]
+        return resolved, f"Alias {expr} -> {resolved}"
+    return expr, None
+
+
+def interval_seconds_to_cron(seconds: int) -> str:
+    if seconds < 60 or seconds % 60 != 0:
+        raise CronError("Interval triggers must be multiples of 60 seconds.")
+
+    minutes = seconds // 60
+    if minutes < 60:
+        return "* * * * *" if minutes == 1 else f"*/{minutes} * * * *"
+
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        if hours < 24:
+            return "0 * * * *" if hours == 1 else f"0 */{hours} * * *"
+        if hours == 24:
+            return "0 0 * * *"
+
+    raise CronError("Interval triggers must be <= 24 hours and align to whole hours.")
 
 
 def _clodputer_binary() -> str:
@@ -110,9 +155,8 @@ def _timezone_line(timezone: Optional[str]) -> Optional[str]:
     return None
 
 
-def generate_cron_section(tasks: Sequence[TaskConfig]) -> str:
-    jobs = [task for task in tasks if task.enabled and task.schedule]
-    if not jobs:
+def generate_cron_section(entries: Sequence[ScheduledEntry]) -> str:
+    if not entries:
         return ""
 
     lines: List[str] = [
@@ -121,18 +165,16 @@ def generate_cron_section(tasks: Sequence[TaskConfig]) -> str:
         f"# Generated: {_timestamp()}",
     ]
 
-    for task in jobs:
-        schedule = task.schedule
-        assert schedule is not None
-        if not validate_cron_expression(schedule.expression):
-            raise CronError(f"Invalid cron expression '{schedule.expression}' for task {task.name}")
-
+    for entry in entries:
+        task = entry.task
         lines.append(f"# Task: {task.name}")
-        tz_line = _timezone_line(schedule.timezone)
+        if entry.note:
+            lines.append(f"# {entry.note}")
+        tz_line = _timezone_line(entry.timezone)
         if tz_line:
             lines.append(tz_line)
-        lines.append(f"{schedule.expression} {_format_command(task)}")
-        lines.append("")  # blank line between jobs
+        lines.append(f"{entry.expression} {_format_command(task)}")
+        lines.append("")
 
     lines.append(CRON_SECTION_END)
     return "\n".join(lines).strip() + "\n"
@@ -184,8 +226,8 @@ def backup_crontab(current_content: str) -> Path:
     return path
 
 
-def install_cron_jobs(tasks: Sequence[TaskConfig]) -> dict:
-    section = generate_cron_section(tasks)
+def install_cron_jobs(entries: Sequence[ScheduledEntry]) -> dict:
+    section = generate_cron_section(entries)
     current = read_crontab()
     cleaned = _remove_existing_section(current)
     backup_path = backup_crontab(current)
@@ -199,7 +241,7 @@ def install_cron_jobs(tasks: Sequence[TaskConfig]) -> dict:
 
     _write_crontab(new_content)
     return {
-        "installed": len([t for t in tasks if t.enabled and t.schedule]),
+        "installed": len(entries),
         "backup": str(backup_path),
         "section_written": bool(section),
     }
@@ -231,8 +273,53 @@ def is_cron_daemon_running() -> bool:
     return False
 
 
-def scheduled_tasks(tasks: Iterable[TaskConfig]) -> List[TaskConfig]:
-    return [task for task in tasks if task.enabled and task.schedule]
+def scheduled_tasks(tasks: Iterable[TaskConfig]) -> List[ScheduledEntry]:
+    entries: List[ScheduledEntry] = []
+    for task in tasks:
+        if not task.enabled:
+            continue
+
+        if task.schedule:
+            resolved, note = resolve_cron_expression(task.schedule.expression)
+            if not validate_cron_expression(resolved):
+                raise CronError(
+                    f"Invalid cron expression '{task.schedule.expression}' for task {task.name}"
+                )
+            entries.append(
+                ScheduledEntry(
+                    task=task,
+                    expression=resolved,
+                    timezone=task.schedule.timezone,
+                    note=note,
+                )
+            )
+        elif task.trigger and getattr(task.trigger, "type", None) == "interval":
+            expression = interval_seconds_to_cron(task.trigger.seconds)  # type: ignore[attr-defined]
+            note = f"Interval every {task.trigger.seconds}s"
+            entries.append(
+                ScheduledEntry(
+                    task=task,
+                    expression=expression,
+                    timezone=None,
+                    note=note,
+                )
+            )
+    return entries
+
+
+def preview_schedule(entry: ScheduledEntry, count: int = 5) -> List[_dt.datetime]:
+    tzinfo = ZoneInfo(entry.timezone) if entry.timezone else _dt.timezone.utc
+    base = _dt.datetime.now(tzinfo)
+    try:
+        iterator = croniter(entry.expression, base)
+    except (ValueError, KeyError) as exc:
+        raise CronError(f"Invalid cron expression '{entry.expression}': {exc}") from exc
+
+    runs: List[_dt.datetime] = []
+    for _ in range(count):
+        next_time = iterator.get_next(_dt.datetime)
+        runs.append(next_time)
+    return runs
 
 
 __all__ = [
@@ -244,4 +331,8 @@ __all__ = [
     "cron_section_present",
     "is_cron_daemon_running",
     "scheduled_tasks",
+    "ScheduledEntry",
+    "interval_seconds_to_cron",
+    "resolve_cron_expression",
+    "preview_schedule",
 ]

@@ -22,7 +22,7 @@ import time
 from datetime import datetime, timezone
 from importlib import metadata
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional
 
 import click
 import json
@@ -37,6 +37,7 @@ from .cron import (
     generate_cron_section,
     install_cron_jobs,
     is_cron_daemon_running,
+    preview_schedule,
     read_crontab,
     scheduled_tasks,
     uninstall_cron_jobs,
@@ -308,18 +309,18 @@ def install(dry_run: bool) -> None:
             click.echo(f" • {path}: {err}")
         raise click.ClickException("Task config validation failed")
 
-    tasks = scheduled_tasks(configs)
-    if not tasks:
-        click.echo("No enabled tasks with schedules found.")
+    entries = scheduled_tasks(configs)
+    if not entries:
+        click.echo("No enabled cron or interval tasks found.")
         return
 
-    section = generate_cron_section(tasks)
+    section = generate_cron_section(entries)
     if dry_run:
         click.echo(section.rstrip())
         return
 
     try:
-        result = install_cron_jobs(tasks)
+        result = install_cron_jobs(entries)
     except CronError as exc:
         raise click.ClickException(str(exc)) from exc
 
@@ -362,6 +363,37 @@ def uninstall(dry_run: bool) -> None:
         click.echo(f"Removed Clodputer cron section. Backup written to {result['backup']}.")
     else:
         click.echo("No Clodputer cron section found.")
+
+
+@cli.command("schedule-preview")
+@click.argument("task_name")
+@click.option("--count", default=5, show_default=True, help="Number of upcoming runs to display.")
+def schedule_preview_command(task_name: str, count: int) -> None:
+    """Preview upcoming run times for a scheduled or interval task."""
+
+    configs, errors = validate_all_tasks()
+    if errors:
+        click.echo("⚠️  Cannot preview schedule until configuration errors are resolved:")
+        for path, err in errors:
+            click.echo(f" • {path}: {err}")
+        raise click.ClickException("Task config validation failed")
+
+    entries = scheduled_tasks(configs)
+    for entry in entries:
+        if entry.task.name == task_name:
+            try:
+                runs = preview_schedule(entry, count=count)
+            except CronError as exc:
+                raise click.ClickException(str(exc)) from exc
+
+            click.echo(f"Upcoming runs for {task_name}:")
+            for dt in runs:
+                click.echo(f" • {dt.isoformat()}")
+            return
+
+    raise click.ClickException(
+        f"Task '{task_name}' is not enabled with a cron schedule or interval trigger."
+    )
 
 
 @cli.command()
@@ -500,13 +532,28 @@ def doctor() -> None:
     scheduled = scheduled_tasks(configs)
     watch_tasks = file_watch_tasks(configs)
 
+    cron_definition_errors: List[str] = []
+    schedule_preview_errors: List[str] = []
+
     def cron_definitions_valid() -> bool:
         if not scheduled:
             return True
         try:
             generate_cron_section(scheduled)
             return True
-        except CronError:
+        except CronError as exc:
+            cron_definition_errors.append(str(exc))
+            return False
+
+    def schedule_preview_ok() -> bool:
+        if not scheduled:
+            return True
+        try:
+            for entry in scheduled:
+                preview_schedule(entry, count=1)
+            return True
+        except CronError as exc:
+            schedule_preview_errors.append(str(exc))
             return False
 
     def watch_paths_exist() -> bool:
@@ -529,6 +576,7 @@ def doctor() -> None:
         )
     )
     checks.append(("Cron job definitions valid", cron_definitions_valid))
+    checks.append(("Cron schedule preview", schedule_preview_ok))
 
     checks.append(
         (
@@ -563,6 +611,16 @@ def doctor() -> None:
         click.echo("\nInvalid task configs:")
         for path, err in config_errors:
             click.echo(f" • {path}: {err}")
+
+    if cron_definition_errors:
+        click.echo("\nCron definition issues:")
+        for err in cron_definition_errors:
+            click.echo(f" • {err}")
+
+    if schedule_preview_errors:
+        click.echo("\nCron preview issues:")
+        for err in schedule_preview_errors:
+            click.echo(f" • {err}")
 
     sys.exit(0 if all_passed else 1)
 

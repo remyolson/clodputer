@@ -38,7 +38,8 @@ def test_generate_cron_section_includes_timezone(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(cron, "CRON_LOG_FILE", tmp_path / "cron.log")
-    section = cron.generate_cron_section([make_scheduled_task()])
+    entries = cron.scheduled_tasks([make_scheduled_task()])
+    section = cron.generate_cron_section(entries)
     assert "CRON_TZ=America/Los_Angeles" in section
     assert " run sample" in section
 
@@ -59,7 +60,8 @@ def test_install_cron_jobs_writes_section(monkeypatch: pytest.MonkeyPatch, tmp_p
 
     monkeypatch.setattr(cron, "_call_crontab", fake_call)
 
-    result = cron.install_cron_jobs([make_scheduled_task()])
+    entries = cron.scheduled_tasks([make_scheduled_task()])
+    result = cron.install_cron_jobs(entries)
     assert result["installed"] == 1
     assert written_inputs, "crontab - should be invoked"
 
@@ -120,6 +122,7 @@ def test_uninstall_cron_jobs_no_section(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_scheduled_tasks_filters(monkeypatch: pytest.MonkeyPatch) -> None:
     scheduled = make_scheduled_task("has-schedule")
+    scheduled.schedule.expression = "@workdays"
     disabled = make_scheduled_task("disabled")
     disabled.enabled = False
     manual = TaskConfig.model_validate(
@@ -129,4 +132,36 @@ def test_scheduled_tasks_filters(monkeypatch: pytest.MonkeyPatch) -> None:
         }
     )
     tasks = cron.scheduled_tasks([scheduled, disabled, manual])
-    assert [task.name for task in tasks] == ["has-schedule"]
+    assert len(tasks) == 1
+    entry = tasks[0]
+    assert entry.task.name == "has-schedule"
+    assert "Alias" in (entry.note or "")
+
+
+def test_interval_seconds_to_cron() -> None:
+    assert cron.interval_seconds_to_cron(300) == "*/5 * * * *"
+    assert cron.interval_seconds_to_cron(3600) == "0 * * * *"
+    assert cron.interval_seconds_to_cron(86400) == "0 0 * * *"
+    with pytest.raises(cron.CronError):
+        cron.interval_seconds_to_cron(59)
+
+
+def test_scheduled_tasks_includes_interval() -> None:
+    interval_task = TaskConfig.model_validate(
+        {
+            "name": "interval",
+            "enabled": True,
+            "trigger": {"type": "interval", "seconds": 600},
+            "task": {"prompt": "hi", "allowed_tools": ["Read"]},
+        }
+    )
+    entries = cron.scheduled_tasks([interval_task])
+    assert len(entries) == 1
+    assert entries[0].expression == "*/10 * * * *"
+    assert "Interval every" in (entries[0].note or "")
+
+
+def test_preview_schedule(monkeypatch: pytest.MonkeyPatch) -> None:
+    entry = cron.scheduled_tasks([make_scheduled_task()])[0]
+    runs = cron.preview_schedule(entry, count=2)
+    assert len(runs) == 2
