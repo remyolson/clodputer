@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
-from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -195,7 +192,7 @@ class TaskManager:
 
         if task.trigger:
             if task.trigger.type == "cron":
-                details.add_row("Type:", f"Scheduled (Cron)")
+                details.add_row("Type:", "Scheduled (Cron)")
                 details.add_row("Schedule:", task.trigger.expression or "N/A")
             elif task.trigger.type == "file_watch":
                 details.add_row("Type:", "File Watch")
