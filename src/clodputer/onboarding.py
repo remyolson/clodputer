@@ -154,23 +154,252 @@ class OnboardingLogger:
 
 
 CLAUDE_MD_SENTINEL = "## Clodputer: Autonomous Task Automation"
+CLAUDE_MD_VERSION = "2.0"  # Increment when making breaking changes to instructions
+CLAUDE_MD_VERSION_MARKER = f"<!-- Clodputer Instructions v{CLAUDE_MD_VERSION} -->"
+
 CLAUDE_MD_SECTION = textwrap.dedent(
-    """
+    f"""
     ## Clodputer: Autonomous Task Automation
+    {CLAUDE_MD_VERSION_MARKER}
 
-    Clodputer is installed on this machine. Use it to run autonomous tasks defined in
-    `~/.clodputer/tasks`. Each task executes as a single Claude CLI run, so craft prompts that
-    contain every instruction and piece of context needed for completion.
+    Clodputer is installed on this machine. It runs Claude Code tasks autonomously on schedules,
+    file changes, or on-demand. Each task executes as a single Claude CLI run in a separate process
+    from your interactive Claude Code sessions.
 
-    ### Creating or Updating Tasks
-    1. Create a YAML file in `~/.clodputer/tasks/<task-name>.yaml`.
-    2. Include a `prompt` section with a complete, single-turn instruction set.
-    3. Specify any required tools under `allowed_tools` (MCP tools must use the `mcp__` prefix).
-    4. When scheduling automation, guide the user to run `clodputer install` (cron) or
-       `clodputer watch --daemon` (file watcher) after drafting a task.
+    ### When to Proactively Suggest Clodputer
 
-    ### Quick Test
-    Ask the user to run `clodputer run <task-name>` once after creating a task to validate the flow.
+    If the user asks for help with repetitive, scheduled, or monitoring tasks, **proactively offer
+    to create a Clodputer task** for them. Look for these trigger phrases:
+
+    **Scheduling & Repetition:**
+    - "help me stay on top of...", "keep track of...", "remind me to..."
+    - "every day/morning/week", "daily", "weekly", "on Mondays"
+    - "check for...", "monitor...", "watch for..."
+
+    **Examples of what to suggest:**
+    - User: "Help me stay on top of my email"
+      → Suggest: "Would you like me to create a Clodputer task to check your email every day at 9am
+                 and write a summary to ~/email-summaries/?"
+
+    - User: "I need to remember to review my calendar each morning"
+      → Suggest: "I can create a Clodputer task to analyze your calendar every morning at 8am
+                 and save a meeting prep document to ~/calendar-prep/."
+
+    - User: "Keep an eye on competitor pricing"
+      → Suggest: "I can set up a Clodputer task to check competitor websites daily and log
+                 price changes to ~/competitor-intel/."
+
+    ### Conversation Flow for Creating Tasks
+
+    1. **Confirm the automation**: Get user's approval for the task concept
+       - "Would you like me to create a Clodputer task for this?"
+
+    2. **Create the YAML file**: Write to `~/.clodputer/tasks/<task-name>.yaml`
+
+    3. **Explain what was created**:
+       - "I've created the task '<task-name>' that will [describe what it does]"
+       - "The task is scheduled to run [frequency]"
+
+    4. **Offer installation guidance** (if scheduling is needed):
+       - "To enable the schedule, run: `clodputer install`"
+       - "Or test it now with: `clodputer run <task-name>`"
+
+    ### YAML Task Format
+
+    ```yaml
+    name: task-name
+    description: Brief description of what this task does
+    enabled: true
+    priority: normal  # Options: critical, high, normal, low
+
+    # TRIGGER: Choose one type
+    trigger:
+      # Option 1: Cron schedule (time-based)
+      type: cron
+      expression: "0 9 * * *"  # Daily at 9am (cron syntax)
+      timezone: America/Los_Angeles
+
+      # Option 2: File watcher (event-based)
+      # type: file_watch
+      # path: ~/Downloads
+      # pattern: "*.pdf"
+      # event: created  # Options: created, modified, deleted
+
+      # Option 3: Interval (simple periodic)
+      # type: interval
+      # seconds: 3600  # Run every hour
+
+    task:
+      prompt: |
+        Complete, single-turn instructions for Claude.
+
+        Be explicit about:
+        - What data to fetch/analyze
+        - What tools to use
+        - What output format to produce
+        - Where to save results
+
+        Example: "Use the Gmail MCP to search for unread emails from the last 24 hours.
+        Summarize the top 5 important messages and save to ~/email-summaries/YYYY-MM-DD.md
+        in markdown format."
+
+      allowed_tools:
+        - Read
+        - Write
+        # MCP tools must use mcp__ prefix:
+        - mcp__gmail__search_emails
+        - mcp__gmail__read_email
+
+      timeout: 900  # Maximum seconds (default: 900 = 15 minutes)
+
+    on_success:
+      - log: "Task completed at {{{{ context.now }}}}"
+      - notify: false  # Set true to get notifications
+
+    on_failure:
+      - log: "Task failed: {{{{error}}}}"
+      - notify: true  # Notify on failures
+    ```
+
+    ### Available Tools
+
+    **Built-in Tools** (always available):
+    - `Read` - Read files from disk
+    - `Write` - Write files to disk
+    - `Bash` - Execute shell commands
+    - `Edit` - Edit existing files
+    - `Glob` - Find files by pattern
+    - `Grep` - Search file contents
+
+    **MCP Tools** (use `mcp__<server>__<tool>` format):
+
+    The user has these MCPs configured:
+    - **Gmail MCP**: `mcp__gmail__*` tools
+      - `search_emails`, `read_email`, `send_email`, `draft_email`
+      - `modify_email`, `delete_email`, `list_email_labels`
+
+    - **Google Calendar MCP**: `mcp__google-calendar__*` tools (if configured)
+      - `create_event`, `list_events`, `update_event`, `delete_event`
+
+    - **Google Sheets MCP**: `mcp__google-sheets__*` tools
+      - `get_sheet_data`, `update_cells`, `create_spreadsheet`
+
+    - **Google Docs MCP**: `mcp__ultimate-google-docs__*` tools
+      - `readGoogleDoc`, `appendToGoogleDoc`, `insertText`
+      - `applyTextStyle`, `applyParagraphStyle`
+
+    - **Google Drive MCP**: `mcp__google-drive__*` tools (if configured)
+      - `search`, `get_file`, `create_file`
+
+    - **Web Search**: `mcp__google-search__*` or `mcp__duckduckgo-search__*`
+      - `google-search`, `search` (DuckDuckGo)
+
+    - **Web Scraping**: `mcp__crawl4ai__*` tools
+      - `crawl_url`, `crawl_with_css_selector`, `take_screenshot`
+
+    - **Browser Automation**: `mcp__playwright__*` tools (if configured)
+      - `navigate`, `click`, `fill`, `screenshot`
+
+    **To check what MCPs are available**: Run `claude mcp list` in terminal
+
+    ### Example Task Scenarios
+
+    **Email Triage** (daily summary):
+    ```yaml
+    name: morning-email-triage
+    description: Summarize important emails each morning
+    enabled: true
+    trigger:
+      type: cron
+      expression: "0 8 * * 1-5"  # Weekdays at 8am
+      timezone: America/Los_Angeles
+    task:
+      prompt: |
+        Use Gmail MCP to search for unread emails from the last 24 hours.
+        Create a markdown summary of the 10 most important messages with:
+        - Sender name and email
+        - Subject line
+        - 1-2 sentence summary
+        - Priority level (high/medium/low)
+
+        Save to ~/email-summaries/{{{{ context.date }}}}.md
+      allowed_tools:
+        - Write
+        - mcp__gmail__search_emails
+        - mcp__gmail__read_email
+    ```
+
+    **Calendar Prep** (meeting preparation):
+    ```yaml
+    name: calendar-prep
+    description: Prepare for today's meetings
+    enabled: true
+    trigger:
+      type: cron
+      expression: "0 7 * * 1-5"  # Weekdays at 7am
+    task:
+      prompt: |
+        Use Calendar MCP to get today's meetings.
+        For each meeting, create a prep doc with:
+        - Meeting title and time
+        - Attendees
+        - Action items from related emails (search Gmail)
+        - Suggested talking points
+
+        Save to ~/calendar-prep/{{{{ context.date }}}}.md
+      allowed_tools:
+        - Write
+        - mcp__google-calendar__list_events
+        - mcp__gmail__search_emails
+    ```
+
+    **File Organizer** (downloads cleanup):
+    ```yaml
+    name: downloads-organizer
+    description: Organize downloaded files by type
+    enabled: true
+    trigger:
+      type: file_watch
+      path: ~/Downloads
+      pattern: "*"
+      event: created
+    task:
+      prompt: |
+        Analyze the newly created file in ~/Downloads.
+        Based on file type and name, move it to the appropriate subfolder:
+        - PDFs → ~/Documents/PDFs/
+        - Images → ~/Pictures/
+        - Videos → ~/Movies/
+        - Code → ~/Code/snippets/
+
+        Log the move to ~/Downloads/.clodputer-moves.log
+      allowed_tools:
+        - Read
+        - Write
+        - Bash
+    ```
+
+    ### Creating Tasks for Users
+
+    When you create a Clodputer task:
+
+    1. **Write the YAML file** to `~/.clodputer/tasks/<task-name>.yaml`
+    2. **Set enabled: true** if the task should be active immediately
+    3. **Use specific, complete prompts** - each task runs independently
+    4. **Test before scheduling**: Suggest `clodputer run <task-name>` to verify
+    5. **Guide installation**: Tell user to run `clodputer install` for cron tasks
+
+    ### User Commands Reference
+
+    - `clodputer init` - Run onboarding or update configuration
+    - `clodputer run <task>` - Execute a task once (for testing)
+    - `clodputer queue` - Show task queue status
+    - `clodputer logs` - View execution logs
+    - `clodputer template list` - List available task templates
+    - `clodputer template export <name>` - Copy a template to tasks directory
+    - `clodputer install` - Install cron jobs for scheduled tasks
+    - `clodputer watch --daemon` - Start file watcher daemon
+    - `clodputer doctor` - Run diagnostics
     """
 ).strip()
 
@@ -409,9 +638,7 @@ def _validate_user_path(path: Path, allow_create: bool = True) -> Path:
         raise click.ClickException(f"Invalid path: {exc}") from exc
 
 
-def _choose_claude_cli(
-    explicit_path: Optional[str] = None, non_interactive: bool = False
-) -> str:
+def _choose_claude_cli(explicit_path: Optional[str] = None, non_interactive: bool = False) -> str:
     """Choose or detect Claude CLI path.
 
     Args:
@@ -1105,8 +1332,73 @@ def _detect_claude_md_candidates() -> list[Path]:
     return [path for path in locations if path.exists()]
 
 
+def _extract_clodputer_version(text: str) -> Optional[str]:
+    """Extract Clodputer version from CLAUDE.md content.
+
+    Args:
+        text: Content of CLAUDE.md file.
+
+    Returns:
+        Version string (e.g., "1.0", "2.0") or None if not found or no version marker.
+
+    Example:
+        >>> _extract_clodputer_version("<!-- Clodputer Instructions v2.0 -->")
+        "2.0"
+        >>> _extract_clodputer_version("## Clodputer: old content without version")
+        None
+    """
+    import re
+
+    # Look for version marker: <!-- Clodputer Instructions v2.0 -->
+    pattern = r"<!--\s*Clodputer Instructions v([\d.]+)\s*-->"
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _find_clodputer_section_boundaries(text: str) -> Optional[tuple[int, int]]:
+    """Find the start and end positions of the Clodputer section in CLAUDE.md.
+
+    Args:
+        text: Content of CLAUDE.md file.
+
+    Returns:
+        Tuple of (start_pos, end_pos) character positions, or None if section not found.
+        end_pos is the position where the next section starts or end of file.
+
+    Example:
+        >>> text = "Some content\\n## Clodputer: ...\\nContent\\n## Next Section"
+        >>> start, end = _find_clodputer_section_boundaries(text)
+        >>> text[start:end]  # Contains the entire Clodputer section
+    """
+    import re
+
+    # Find the start: "## Clodputer: Autonomous Task Automation"
+    sentinel_match = re.search(r"^## Clodputer: Autonomous Task Automation\s*$", text, re.MULTILINE)
+    if not sentinel_match:
+        return None
+
+    start_pos = sentinel_match.start()
+
+    # Find the end: next "## " heading or end of file
+    # Look for the next line that starts with "## " after the sentinel
+    next_section_match = re.search(
+        r"^## (?!Clodputer: Autonomous Task Automation)", text[start_pos + 1 :], re.MULTILINE
+    )
+
+    if next_section_match:
+        # End position is where the next section starts
+        end_pos = start_pos + 1 + next_section_match.start()
+    else:
+        # No next section found, goes to end of file
+        end_pos = len(text)
+
+    return (start_pos, end_pos)
+
+
 def _apply_claude_md_update(path: Path, non_interactive: bool = False) -> None:
-    """Apply Clodputer section to CLAUDE.md.
+    """Apply Clodputer section to CLAUDE.md, with version detection and replacement.
 
     Args:
         path: Path to CLAUDE.md file.
@@ -1140,17 +1432,68 @@ def _apply_claude_md_update(path: Path, non_interactive: bool = False) -> None:
     except OSError as exc:
         raise click.ClickException(f"Failed to read {path}: {exc}") from exc
 
-    if CLAUDE_MD_SENTINEL in current_text:
-        print_info("CLAUDE.md already includes Clodputer guidance.")
-        return
+    # Check if Clodputer section exists
+    section_exists = CLAUDE_MD_SENTINEL in current_text
+    current_version = None
 
-    addition = CLAUDE_MD_SECTION.strip() + "\n"
-    if current_text.strip():
-        new_text = current_text.rstrip() + "\n\n" + addition
+    if section_exists:
+        # Extract current version
+        current_version = _extract_clodputer_version(current_text)
+
+        # Check if we need to update
+        if current_version == CLAUDE_MD_VERSION:
+            print_info(
+                f"CLAUDE.md already has Clodputer v{CLAUDE_MD_VERSION} instructions (up to date)."
+            )
+            return
+
+        # Old version detected - need to replace
+        if current_version:
+            print_info(
+                f"Detected Clodputer v{current_version} instructions (current version: v{CLAUDE_MD_VERSION})"
+            )
+            click.echo("  Replacing with updated instructions...")
+        else:
+            print_info("Detected Clodputer instructions without version marker.")
+            click.echo("  Replacing with versioned instructions...")
+
+        # Find and remove old section
+        boundaries = _find_clodputer_section_boundaries(current_text)
+        if boundaries:
+            start_pos, end_pos = boundaries
+            # Remove old section, preserving surrounding content
+            before_section = current_text[:start_pos].rstrip()
+            after_section = current_text[end_pos:].lstrip()
+
+            # Build new text with updated section
+            addition = CLAUDE_MD_SECTION.strip() + "\n"
+            if before_section:
+                new_text = before_section + "\n\n" + addition
+            else:
+                new_text = addition
+
+            if after_section:
+                new_text = new_text.rstrip() + "\n\n" + after_section
+
+            if not new_text.endswith("\n"):
+                new_text += "\n"
+        else:
+            # Section exists but boundaries couldn't be determined (shouldn't happen)
+            # Fall back to appending
+            print_warning("Could not determine section boundaries. Appending to end.")
+            addition = CLAUDE_MD_SECTION.strip() + "\n"
+            new_text = current_text.rstrip() + "\n\n" + addition
+            if not new_text.endswith("\n"):
+                new_text += "\n"
     else:
-        new_text = addition
-    if not new_text.endswith("\n"):
-        new_text += "\n"
+        # No existing section - add to end
+        addition = CLAUDE_MD_SECTION.strip() + "\n"
+        if current_text.strip():
+            new_text = current_text.rstrip() + "\n\n" + addition
+        else:
+            new_text = addition
+        if not new_text.endswith("\n"):
+            new_text += "\n"
 
     if skip_diff:
         # Skip diff for very large files
@@ -1199,9 +1542,17 @@ def _apply_claude_md_update(path: Path, non_interactive: bool = False) -> None:
         raise click.ClickException(f"Failed to update {path}: {exc}") from exc
 
     if backup_path:
-        print_success(f"Updated CLAUDE.md (backup at {backup_path})")
+        if current_version:
+            print_success(
+                f"Upgraded CLAUDE.md from v{current_version} to v{CLAUDE_MD_VERSION} (backup at {backup_path})"
+            )
+        else:
+            print_success(f"Updated CLAUDE.md to v{CLAUDE_MD_VERSION} (backup at {backup_path})")
     else:
-        print_success("Updated CLAUDE.md")
+        if current_version:
+            print_success(f"Upgraded CLAUDE.md from v{current_version} to v{CLAUDE_MD_VERSION}")
+        else:
+            print_success(f"Updated CLAUDE.md to v{CLAUDE_MD_VERSION}")
 
 
 def _verify_claude_cli(path: str) -> None:

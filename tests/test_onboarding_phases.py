@@ -220,16 +220,46 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
 
 
 def test_apply_claude_md_update_noop_when_present(tmp_path):
+    """Test that CLAUDE.md with current version is not modified."""
     from clodputer import onboarding
 
     claude_md = tmp_path / "CLAUDE.md"
-    claude_md.write_text(f"{onboarding.CLAUDE_MD_SENTINEL}\nExisting guidance\n", encoding="utf-8")
+    # Write CLAUDE.md with current version marker
+    current_content = f"{onboarding.CLAUDE_MD_SENTINEL}\n{onboarding.CLAUDE_MD_VERSION_MARKER}\n\nExisting guidance\n"
+    claude_md.write_text(current_content, encoding="utf-8")
 
-    onboarding._apply_claude_md_update(claude_md)
+    # Should be no-op since version is current
+    onboarding._apply_claude_md_update(claude_md, non_interactive=True)
 
+    # Content should be unchanged
     contents = claude_md.read_text(encoding="utf-8")
-    assert contents.startswith(onboarding.CLAUDE_MD_SENTINEL)
+    assert contents == current_content
+    assert onboarding.CLAUDE_MD_VERSION_MARKER in contents
     assert "Existing guidance" in contents
+
+
+def test_apply_claude_md_update_upgrades_old_version(tmp_path):
+    """Test that CLAUDE.md without version marker is upgraded to current version."""
+    from clodputer import onboarding
+
+    claude_md = tmp_path / "CLAUDE.md"
+    # Write CLAUDE.md with old format (no version marker)
+    old_content = f"{onboarding.CLAUDE_MD_SENTINEL}\nOld guidance without version\n"
+    claude_md.write_text(old_content, encoding="utf-8")
+
+    # Should upgrade to current version
+    onboarding._apply_claude_md_update(claude_md, non_interactive=True)
+
+    # Content should be replaced with new version
+    contents = claude_md.read_text(encoding="utf-8")
+    assert onboarding.CLAUDE_MD_SENTINEL in contents
+    assert onboarding.CLAUDE_MD_VERSION_MARKER in contents
+    assert "Old guidance" not in contents
+    # Check for some v2.0 content
+    assert "When to Proactively Suggest Clodputer" in contents
+    # Verify backup was created
+    backups = list(claude_md.parent.glob("CLAUDE.md.backup-*"))
+    assert len(backups) == 1
 
 
 def test_apply_claude_md_update_skips_on_decline(monkeypatch, tmp_path):
