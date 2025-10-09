@@ -154,7 +154,7 @@ class OnboardingLogger:
 
 
 CLAUDE_MD_SENTINEL = "## Clodputer: Autonomous Task Automation"
-CLAUDE_MD_VERSION = "2.0"  # Increment when making breaking changes to instructions
+CLAUDE_MD_VERSION = "2.1"  # Increment when making breaking changes to instructions
 CLAUDE_MD_VERSION_MARKER = f"<!-- Clodputer Instructions v{CLAUDE_MD_VERSION} -->"
 
 CLAUDE_MD_SECTION = textwrap.dedent(
@@ -196,13 +196,16 @@ CLAUDE_MD_SECTION = textwrap.dedent(
 
     2. **Create the YAML file**: Write to `~/.clodputer/tasks/<task-name>.yaml`
 
-    3. **Explain what was created**:
-       - "I've created the task '<task-name>' that will [describe what it does]"
-       - "The task is scheduled to run [frequency]"
+    3. **Install the schedule automatically** (if task has schedule or file_watch trigger):
+       - Run: `clodputer install` to activate cron schedules
+       - Run: `clodputer watch --daemon` to start file watcher (if needed)
+       - This happens automatically - user doesn't need to run commands manually
 
-    4. **Offer installation guidance** (if scheduling is needed):
-       - "To enable the schedule, run: `clodputer install`"
-       - "Or test it now with: `clodputer run <task-name>`"
+    4. **Confirm what was created**:
+       - "✅ Created and activated '<task-name>'"
+       - "The task is scheduled to run [frequency]"
+       - "First run: [next scheduled time]"
+       - "You can test it now with: `clodputer run <task-name>`"
 
     ### YAML Task Format
 
@@ -386,8 +389,9 @@ CLAUDE_MD_SECTION = textwrap.dedent(
     1. **Write the YAML file** to `~/.clodputer/tasks/<task-name>.yaml`
     2. **Set enabled: true** if the task should be active immediately
     3. **Use specific, complete prompts** - each task runs independently
-    4. **Test before scheduling**: Suggest `clodputer run <task-name>` to verify
-    5. **Guide installation**: Tell user to run `clodputer install` for cron tasks
+    4. **Auto-install schedules**: Run `clodputer install` automatically for scheduled tasks
+    5. **Auto-start watchers**: Run `clodputer watch --daemon` automatically if file_watch triggers exist
+    6. **Test before scheduling**: Suggest `clodputer run <task-name>` to verify
 
     ### User Commands Reference
 
