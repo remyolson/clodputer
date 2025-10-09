@@ -1228,13 +1228,15 @@ def _detect_available_mcps() -> list[dict]:
         if not cli_path:
             return []
 
-        # Run `claude mcp list`
+        # Run `claude mcp list` from home directory to ensure all user-scope MCPs are visible
+        # (MCP visibility can vary based on working directory due to project-level configs)
         result = subprocess.run(
             [cli_path, "mcp", "list"],
             capture_output=True,
             text=True,
             timeout=10,
             check=False,
+            cwd=str(Path.home()),
         )
 
         if result.returncode != 0:
