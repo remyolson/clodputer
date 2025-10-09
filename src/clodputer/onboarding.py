@@ -1080,8 +1080,12 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         prompt = _build_task_generation_prompt(mcps)
 
         # Invoke Claude Code in non-interactive mode
+        cmd = [cli_path, "--print", "--output-format", "json"]
+        click.echo(f"    [debug] Running: {' '.join(cmd)}", err=True)
+        click.echo(f"    [debug] Prompt length: {len(prompt)} chars", err=True)
+
         result = subprocess.run(
-            [cli_path, "--print", "--output-format", "json"],
+            cmd,
             input=prompt,
             capture_output=True,
             text=True,
@@ -1092,20 +1096,31 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         if result.returncode != 0:
             click.echo(f"    [debug] Claude CLI returned code {result.returncode}", err=True)
             if result.stderr:
-                click.echo(f"    [debug] stderr: {result.stderr[:200]}", err=True)
+                click.echo(f"    [debug] stderr: {result.stderr}", err=True)
+            if result.stdout:
+                click.echo(f"    [debug] stdout: {result.stdout[:500]}", err=True)
             return None
+
+        # Show what we got back
+        click.echo(f"    [debug] Claude CLI succeeded, stdout length: {len(result.stdout)} chars", err=True)
+        click.echo(f"    [debug] First 500 chars of stdout: {result.stdout[:500]}", err=True)
 
         # Parse JSON response
         try:
             response = json_module.loads(result.stdout)
         except json_module.JSONDecodeError as exc:
             click.echo(f"    [debug] JSON parse error: {exc}", err=True)
-            click.echo(f"    [debug] stdout: {result.stdout[:200]}", err=True)
+            click.echo(f"    [debug] Full stdout: {result.stdout}", err=True)
             return None
 
         # Validate response structure
+        click.echo(f"    [debug] Parsed response type: {type(response)}", err=True)
+        if isinstance(response, dict):
+            click.echo(f"    [debug] Response keys: {list(response.keys())}", err=True)
+
         if not isinstance(response, dict) or "tasks" not in response:
             click.echo("    [debug] Invalid response structure", err=True)
+            click.echo(f"    [debug] Full response: {response}", err=True)
             return None
 
         tasks = response["tasks"]
@@ -1311,6 +1326,8 @@ def _offer_intelligent_task_generation() -> bool:
 
     if mcps:
         click.echo(f"    Found {len(mcps)} MCP(s), {connected_count} connected")
+        click.echo(f"    [debug] MCPs detected: {[m['name'] for m in mcps]}", err=True)
+        click.echo(f"    [debug] MCP statuses: {[(m['name'], m['status']) for m in mcps]}", err=True)
     else:
         click.echo("    No MCPs detected")
 
