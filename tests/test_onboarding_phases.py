@@ -49,6 +49,7 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
@@ -125,6 +126,7 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
@@ -184,6 +186,7 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
@@ -309,6 +312,7 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_detect_claude_md_candidates", lambda: [])
@@ -381,6 +385,7 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(
@@ -929,7 +934,7 @@ def test_apply_claude_md_large_file_warning(monkeypatch, tmp_path):
     claude_md.write_text(large_content, encoding="utf-8")
 
     outputs: list[str] = []
-    monkeypatch.setattr(onboarding.click, "echo", lambda msg: outputs.append(msg))
+    monkeypatch.setattr(onboarding.click, "echo", lambda msg="": outputs.append(msg))
     monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: False)
 
     # Should skip update when user declines
@@ -938,3 +943,186 @@ def test_apply_claude_md_large_file_warning(monkeypatch, tmp_path):
     # Should have warned about large file
     assert any("large" in msg.lower() for msg in outputs)
     assert any("2MB" in msg or "2 MB" in msg for msg in outputs)
+
+
+def test_check_working_directory_already_home(monkeypatch, tmp_path):
+    """Test that check passes when already in home directory."""
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    home.mkdir()
+
+    # Set both cwd and home to same directory
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: home)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # Should return without any prompts
+    onboarding._check_working_directory(non_interactive=False)
+
+
+def test_check_working_directory_non_interactive_warning(monkeypatch, tmp_path, capsys):
+    """Test that non-interactive mode warns but continues."""
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    other = tmp_path / "other"
+    home.mkdir()
+    other.mkdir()
+
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: other)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # Should warn and continue without prompting
+    onboarding._check_working_directory(non_interactive=True)
+
+    captured = capsys.readouterr()
+    assert "not home directory" in captured.out.lower()
+
+
+def test_check_working_directory_user_confirms_move(monkeypatch, tmp_path):
+    """Test successful directory change when user confirms."""
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    other = tmp_path / "other"
+    home.mkdir()
+    other.mkdir()
+
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: other)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # User confirms move
+    monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: True)
+
+    changed_to = []
+
+    def fake_chdir(path):
+        changed_to.append(path)
+
+    monkeypatch.setattr(onboarding.os, "chdir", fake_chdir)
+
+    outputs: list[str] = []
+    monkeypatch.setattr(onboarding.click, "echo", lambda msg="": outputs.append(msg))
+
+    onboarding._check_working_directory(non_interactive=False)
+
+    assert changed_to == [home]
+    assert any("Changed directory" in msg for msg in outputs)
+
+
+def test_check_working_directory_user_declines_move_but_continues(monkeypatch, tmp_path):
+    """Test that user can decline move but choose to continue."""
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    other = tmp_path / "other"
+    home.mkdir()
+    other.mkdir()
+
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: other)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # First confirm: No (don't move), Second confirm: Yes (continue anyway)
+    confirms = iter([False, True])
+    monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: next(confirms))
+
+    outputs: list[str] = []
+    monkeypatch.setattr(onboarding.click, "echo", lambda msg="": outputs.append(msg))
+
+    # Should not raise exception
+    onboarding._check_working_directory(non_interactive=False)
+
+    assert any("Staying in current directory" in msg for msg in outputs)
+    assert any("may cause issues" in msg for msg in outputs)
+
+
+def test_check_working_directory_user_declines_everything(monkeypatch, tmp_path):
+    """Test that declining both move and continue raises exception."""
+    import click
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    other = tmp_path / "other"
+    home.mkdir()
+    other.mkdir()
+
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: other)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # Both confirms: No
+    monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: False)
+    monkeypatch.setattr(onboarding.click, "echo", lambda *_: None)
+
+    # Should raise ClickException
+    try:
+        onboarding._check_working_directory(non_interactive=False)
+        assert False, "Should have raised ClickException"
+    except click.ClickException as exc:
+        assert "cancelled" in str(exc).lower()
+
+
+def test_check_working_directory_chdir_fails(monkeypatch, tmp_path):
+    """Test handling of os.chdir failure."""
+    import click
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    other = tmp_path / "other"
+    home.mkdir()
+    other.mkdir()
+
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: other)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # User confirms move
+    confirms = iter([True, False])  # Yes to move, No to continue after failure
+    monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: next(confirms))
+
+    def failing_chdir(path):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr(onboarding.os, "chdir", failing_chdir)
+
+    outputs: list[str] = []
+    monkeypatch.setattr(onboarding.click, "echo", lambda msg="": outputs.append(msg))
+
+    # Should raise ClickException after failed chdir and user declines to continue
+    try:
+        onboarding._check_working_directory(non_interactive=False)
+        assert False, "Should have raised ClickException"
+    except click.ClickException as exc:
+        assert "cancelled" in str(exc).lower()
+
+    # Should have printed error about failed chdir
+    assert any("Failed to change directory" in msg for msg in outputs)
+
+
+def test_check_working_directory_chdir_fails_but_continues(monkeypatch, tmp_path):
+    """Test continuing despite os.chdir failure when user confirms."""
+    from clodputer import onboarding
+
+    home = tmp_path / "home"
+    other = tmp_path / "other"
+    home.mkdir()
+    other.mkdir()
+
+    monkeypatch.setattr(onboarding.Path, "cwd", lambda: other)
+    monkeypatch.setattr(onboarding.Path, "home", lambda: home)
+
+    # User confirms move, then confirms to continue after failure
+    confirms = iter([True, True])
+    monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: next(confirms))
+
+    def failing_chdir(path):
+        raise OSError("Permission denied")
+
+    monkeypatch.setattr(onboarding.os, "chdir", failing_chdir)
+
+    outputs: list[str] = []
+    monkeypatch.setattr(onboarding.click, "echo", lambda msg="": outputs.append(msg))
+
+    # Should continue despite failed chdir
+    onboarding._check_working_directory(non_interactive=False)
+
+    # Should have printed error about failed chdir
+    assert any("Failed to change directory" in msg for msg in outputs)

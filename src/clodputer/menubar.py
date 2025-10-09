@@ -94,10 +94,7 @@ class ClodputerMenuBar(rumps.App):
     @rumps.clicked("Launch Dashboard")
     def launch_dashboard(self, _sender) -> None:
         script = (
-            'tell application "Terminal"\n'
-            "  activate\n"
-            '  do script "clodputer dashboard"\n'
-            "end tell"
+            'tell application "Terminal"\n  activate\n  do script "clodputer dashboard"\nend tell'
         )
         _osascript(script)
 

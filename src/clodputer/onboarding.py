@@ -474,6 +474,9 @@ def run_onboarding(
     with OnboardingLogger():
         print_section_title("Clodputer Onboarding")
 
+        # Check working directory and offer to move to home
+        _check_working_directory(non_interactive=non_interactive)
+
         if reset:
             if removed_paths:
                 print_info("Reset onboarding state:")
@@ -572,6 +575,62 @@ def _ensure_directories() -> None:
 
 def _onboarding_log_path() -> Path:
     return QUEUE_DIR / "onboarding.log"
+
+
+def _check_working_directory(non_interactive: bool = False) -> None:
+    """Check if running from home directory and offer to move if not.
+
+    Clodputer is designed to run from the user's home directory as a
+    system-wide automation tool. Running from other directories can cause
+    issues with MCP detection and multiple conflicting instances.
+
+    Args:
+        non_interactive: If True, skips the check in non-interactive mode.
+    """
+    current_dir = Path.cwd().resolve()
+    home_dir = Path.home().resolve()
+
+    # Already in home directory - all good
+    if current_dir == home_dir:
+        return
+
+    # In non-interactive mode, just warn and continue
+    if non_interactive:
+        print_warning(f"Running from {current_dir}, not home directory.")
+        print_dim("Clodputer is designed to run from your home directory.")
+        return
+
+    # Interactive mode - explain and offer to move to home
+    print_warning(f"You're running Clodputer from: {current_dir}")
+    click.echo()
+    click.echo("  ℹ️  Clodputer is designed to run from your home directory.")
+    click.echo("  Why?")
+    click.echo("    • Clodputer is a system-wide automation tool, not per-project")
+    click.echo("    • Running from other directories may miss user-scoped MCPs")
+    click.echo("    • Multiple instances in different directories can conflict")
+    click.echo()
+    click.echo(f"  Recommended: Run from {home_dir}")
+    click.echo()
+
+    if click.confirm("  Move to your home directory and continue?", default=True):
+        try:
+            os.chdir(home_dir)
+            print_success(f"Changed directory to {home_dir}")
+            debug_logger.info(
+                "working_directory_changed",
+                from_dir=str(current_dir),
+                to_dir=str(home_dir),
+            )
+        except OSError as exc:
+            print_error(f"Failed to change directory: {exc}")
+            if not click.confirm("  Continue from current directory anyway?", default=False):
+                raise click.ClickException("Onboarding cancelled by user")
+    else:
+        # User declined to move - ask if they want to continue anyway
+        print_dim("Staying in current directory.")
+        if not click.confirm("  Continue onboarding from here anyway?", default=False):
+            raise click.ClickException("Onboarding cancelled by user")
+        print_warning("Continuing from non-home directory (may cause issues)")
 
 
 def _select_from_list(items: list[str] | list[Path], prompt_text: str, default: int = 1) -> int:
@@ -1965,8 +2024,8 @@ def _detect_available_mcps() -> list[dict]:
             )
             return []
 
-        # Run `claude mcp list` from home directory to ensure all user-scope MCPs are visible
-        # (MCP visibility can vary based on working directory due to project-level configs)
+        # Run `claude mcp list` from current working directory
+        # Onboarding ensures we're in home directory for proper MCP detection
         debug_logger.subprocess(
             "mcp_list_command_starting",
             command=f"{cli_path} mcp list",
@@ -1980,7 +2039,6 @@ def _detect_available_mcps() -> list[dict]:
             text=True,
             timeout=10,
             check=False,
-            cwd=str(Path.home()),
         )
 
         debug_logger.subprocess(

@@ -184,9 +184,9 @@ def debug_view_command(
         click.echo("No log entries match the filters.")
         return
 
-    click.echo(f"\n{'='*80}")
+    click.echo(f"\n{'=' * 80}")
     click.echo(f"Debug Logs ({len(filtered_entries)} entries)")
-    click.echo(f"{'='*80}\n")
+    click.echo(f"{'=' * 80}\n")
 
     for i, entry in enumerate(filtered_entries):
         click.echo(format_log_entry(entry, show_full_data=full))

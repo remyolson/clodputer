@@ -51,7 +51,7 @@ def test_prune_archives_retains_recent(tmp_path: Path, monkeypatch) -> None:
     _configure_logger_paths(tmp_path, monkeypatch)
     archive_dir = logger_module.ARCHIVE_DIR
     for idx in range(5):
-        f = archive_dir / f"2025-0{idx+1}.log"
+        f = archive_dir / f"2025-0{idx + 1}.log"
         f.write_text("dummy")
         os.utime(f, (idx, idx))
 

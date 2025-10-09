@@ -86,6 +86,7 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "_offer_template_install", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
@@ -144,6 +145,7 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "_offer_template_install", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
@@ -208,6 +210,7 @@ def test_cli_init_reset_clears_state(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
+    monkeypatch.setattr(onboarding, "_check_working_directory", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "_offer_template_install", lambda **_: None)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
