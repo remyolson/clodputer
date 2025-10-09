@@ -788,8 +788,8 @@ def _render_doctor_summary(results: Sequence[CheckResult]) -> None:
             for result in skipped_optional:
                 # Use a neutral indicator, not an error symbol
                 if "cron" in result.name.lower():
-                    click.echo(f"  ⊝ Cron scheduling not installed (optional)")
-                    click.echo(f"      Run `clodputer install` to enable scheduled tasks")
+                    click.echo("  ⊝ Cron scheduling not installed (optional)")
+                    click.echo("      Run `clodputer install` to enable scheduled tasks")
 
     click.echo("  💡 Run `clodputer doctor` anytime for full diagnostics.")
 
@@ -1101,12 +1101,12 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
 
         # Validate response structure
         if not isinstance(response, dict) or "tasks" not in response:
-            click.echo(f"    [debug] Invalid response structure", err=True)
+            click.echo("    [debug] Invalid response structure", err=True)
             return None
 
         tasks = response["tasks"]
         if not isinstance(tasks, list):
-            click.echo(f"    [debug] 'tasks' is not a list", err=True)
+            click.echo("    [debug] 'tasks' is not a list", err=True)
             return None
 
         # Accept 1-3 tasks (not strict on 3)
@@ -1124,7 +1124,7 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
 
         # Need at least 1 valid task
         if not validated_tasks:
-            click.echo(f"    [debug] No tasks passed validation", err=True)
+            click.echo("    [debug] No tasks passed validation", err=True)
             return None
 
         return validated_tasks

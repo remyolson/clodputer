@@ -1,9 +1,7 @@
 """Tests for intelligent task generation during onboarding."""
 
-from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 
 
 def test_parse_mcp_list_output():
