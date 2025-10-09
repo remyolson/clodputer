@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import time
 from datetime import datetime, timezone
 from typing import List, Optional
 
 from croniter import croniter
 
 from .config import ScheduleConfig, TaskConfig
-from .task_state import TaskState, get_task_state
+from .task_state import get_task_state
 
 
 class MissedTask:

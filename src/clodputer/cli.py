@@ -546,7 +546,7 @@ def catch_up_command(dry_run: bool) -> None:
     queued_count = 0
     with QueueManager() as queue:
         for miss in missed:
-            item = queue.enqueue(
+            queue.enqueue(
                 miss.task_name,
                 priority="normal",
                 metadata={"catch_up": True, "missed_at": miss.missed_at},
