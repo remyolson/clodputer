@@ -1,6 +1,7 @@
 """Tests for environment and state management functionality."""
 
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -96,7 +97,8 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -154,7 +156,8 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -217,7 +220,8 @@ def test_cli_init_reset_clears_state(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 

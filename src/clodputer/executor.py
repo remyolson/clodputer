@@ -27,6 +27,7 @@ import uuid
 
 from .cleanup import CleanupReport, cleanup_process_tree
 from .config import ConfigError, TaskConfig, load_task_by_name, load_task_config
+from .debug import debug_logger
 from .environment import claude_cli_path, store_claude_cli_path
 from .logger import StructuredLogger
 from .metrics import record_failure, record_success
@@ -243,7 +244,65 @@ class TaskExecutor:
         queue_item: QueueItem,
         update_queue: bool,
     ) -> ExecutionResult:
+        debug_logger.info(
+            "task_execution_started",
+            description=f"🚀 Starting task execution: {config.name}",
+            tags=["task", "execution", "start"],
+            task_id=queue_item.id,
+            task_name=config.name,
+            priority=config.priority,
+        )
+
         command = build_command(config)
+
+        # Log FULL command for debugging (shows exactly what we're sending to Claude)
+        debug_logger.info(
+            "claude_command_built",
+            description=f"📝 Built Claude CLI command ({len(command)} arguments)",
+            tags=["claude", "command", "build"],
+            summary={
+                "arg_count": len(command),
+                "has_tools": bool(config.task.allowed_tools or config.task.disallowed_tools),
+                "output_format": "json",
+            },
+            full_command=command,
+            command_string=" ".join(command),
+        )
+
+        # Log the FULL prompt being sent to Claude
+        prompt_size_kb = len(config.task.prompt) / 1024
+
+        # Warn if prompt is dangerously large (could hit token limits)
+        if prompt_size_kb > 50:  # ~12k tokens
+            debug_logger.warning(
+                "large_prompt_warning",
+                description=f"⚠️  Large prompt may hit token limits ({prompt_size_kb:.1f} KB)",
+                tags=["claude", "prompt", "warning", "size"],
+                marker="⚠️",
+                summary={
+                    "size_kb": f"{prompt_size_kb:.1f}",
+                    "threshold_kb": "50",
+                    "risk": "token_limit",
+                },
+                prompt_size_kb=prompt_size_kb,
+                task_name=config.name,
+            )
+
+        debug_logger.info(
+            "claude_prompt_sent",
+            description=f"📤 Sending prompt to Claude ({prompt_size_kb:.1f} KB)",
+            tags=["claude", "prompt", "api"],
+            marker="📤",
+            summary={
+                "size_kb": f"{prompt_size_kb:.1f}",
+                "size_chars": len(config.task.prompt),
+                "task": config.name,
+            },
+            prompt=config.task.prompt,
+            prompt_length=len(config.task.prompt),
+            task_name=config.name,
+        )
+
         metadata = {"priority": config.priority}
 
         process = None
@@ -254,12 +313,20 @@ class TaskExecutor:
                 stderr=subprocess.PIPE,
                 text=True,
             )
+            debug_logger.subprocess(
+                "claude_process_started",
+                " ".join(command),
+                pid=process.pid,
+                task_name=config.name,
+            )
         except FileNotFoundError as exc:
+            debug_logger.error("task_cli_not_found", command_path=command[0], error=str(exc))
             raise TaskExecutionError(
                 f"Claude CLI not found at {command[0]!r}. "
                 "Set CLODPUTER_CLAUDE_BIN to the correct executable."
             ) from exc
         except OSError as exc:
+            debug_logger.error("task_subprocess_failed", error=str(exc))
             raise TaskExecutionError(f"Failed to start Claude CLI: {exc}") from exc
 
         if update_queue and self.queue_manager:
@@ -276,7 +343,39 @@ class TaskExecutor:
         try:
             stdout, stderr = process.communicate(timeout=timeout_seconds)
             return_code = process.returncode
+
+            # Log FULL response from Claude (critical for debugging)
+            duration = time.monotonic() - start_time
+            stdout_size_kb = (len(stdout) if stdout else 0) / 1024
+            stderr_size_kb = (len(stderr) if stderr else 0) / 1024
+
+            debug_logger.info(
+                "claude_response_received",
+                description=f"📥 Received response from Claude ({duration:.1f}s, {stdout_size_kb:.1f} KB)",
+                tags=["claude", "response", "api"],
+                marker="📥",
+                summary={
+                    "duration": f"{duration:.1f}s",
+                    "stdout_kb": f"{stdout_size_kb:.1f}",
+                    "stderr_kb": f"{stderr_size_kb:.1f}",
+                    "return_code": return_code,
+                    "has_output": bool(stdout),
+                },
+                pid=process.pid,
+                task_name=config.name,
+                return_code=return_code,
+                duration=duration,
+                stdout=stdout,
+                stderr=stderr,
+                stdout_length=len(stdout) if stdout else 0,
+                stderr_length=len(stderr) if stderr else 0,
+            )
         except subprocess.TimeoutExpired:
+            debug_logger.warning(
+                "task_subprocess_timeout",
+                pid=process.pid,
+                timeout_seconds=timeout_seconds,
+            )
             process.kill()
             stdout, stderr = process.communicate()
             return_code = process.returncode
@@ -313,6 +412,59 @@ class TaskExecutor:
 
         duration = time.monotonic() - start_time
         parsed_json, parse_error = _extract_json(stdout)
+
+        # Log JSON parsing result with schema validation (helps identify format issues)
+        if parse_error:
+            # Analyze what we got to provide better diagnostics
+            stdout_preview = stdout[:200] if stdout else ""
+            actual_type = "empty" if not stdout else "text"
+
+            # Detect common failure patterns
+            troubleshooting_hint = "Check if Claude returned an error message instead of JSON"
+            if stdout and stdout.strip().startswith("{"):
+                troubleshooting_hint = (
+                    "JSON syntax error - check for unescaped quotes or invalid characters"
+                )
+            elif stdout and "error" in stdout.lower()[:100]:
+                troubleshooting_hint = "Claude CLI returned an error message, not JSON"
+            elif stdout and stdout.strip().startswith("```"):
+                troubleshooting_hint = (
+                    "Response contains markdown code blocks - extraction may have failed"
+                )
+            elif not stdout:
+                troubleshooting_hint = "Claude produced no output - check if CLI is working (run: clodputer debug test-claude)"
+
+            debug_logger.error(
+                "claude_json_parse_failed",
+                description="❌ Failed to parse Claude's response as JSON",
+                tags=["claude", "json", "parse", "error", "schema"],
+                marker="❌",
+                summary={
+                    "error": parse_error[:100],
+                    "expected": "Valid JSON object or array",
+                    "actual_type": actual_type,
+                    "stdout_length": len(stdout) if stdout else 0,
+                },
+                task_name=config.name,
+                parse_error=parse_error,
+                expected_schema="JSON object (dict) or array - Claude should return --output-format json",
+                actual_preview=stdout_preview,
+                troubleshooting=troubleshooting_hint,
+                stdout_preview=stdout[:500] if stdout else None,
+            )
+        else:
+            debug_logger.info(
+                "claude_json_parsed_successfully",
+                description="✅ Successfully parsed JSON response",
+                tags=["claude", "json", "parse", "success"],
+                marker="✅",
+                summary={
+                    "type": type(parsed_json).__name__,
+                    "is_dict": isinstance(parsed_json, dict),
+                },
+                task_name=config.name,
+                parsed_structure=type(parsed_json).__name__,
+            )
 
         status: ExecutionStatus
         error_info: Optional[str] = None
@@ -402,6 +554,35 @@ class TaskExecutor:
             record_success(config.name, duration)
         else:
             record_failure(config.name)
+
+        # Determine appropriate marker based on status
+        status_markers = {
+            "success": "✅",
+            "failure": "❌",
+            "timeout": "⏱️",
+            "error": "⚠️",
+        }
+        status_marker = status_markers.get(status, "ℹ️")
+
+        debug_logger.info(
+            "task_execution_completed",
+            description=f"{status_marker} Task {status}: {config.name} ({duration:.1f}s)",
+            tags=["task", "execution", "completed", status],
+            marker=status_marker,
+            summary={
+                "status": status,
+                "duration": f"{duration:.1f}s",
+                "return_code": return_code,
+                "json_valid": parse_error is None,
+                "task": config.name,
+            },
+            task_id=queue_item.id,
+            task_name=config.name,
+            status=status,
+            duration=duration,
+            return_code=return_code,
+            has_parse_error=parse_error is not None,
+        )
 
         return result
 

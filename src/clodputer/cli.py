@@ -14,11 +14,14 @@ Commands included:
 - clodputer watch
 - clodputer manage
 - clodputer doctor
+- clodputer debug view
+- clodputer debug test-claude
 """
 
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -43,6 +46,8 @@ from .cron import (
     uninstall_cron_jobs,
 )
 from .dashboard import run_dashboard
+from .debug import debug_logger, enable_debug_logging, DEBUG_LOG_FILE
+from .debug_viewer import debug_view_command
 from .diagnostics import gather_diagnostics
 from .executor import ExecutionResult, TaskExecutor
 from .logger import LOG_FILE, iter_events, tail_events
@@ -83,6 +88,44 @@ def _format_duration(seconds: float) -> str:
     if minutes:
         return f"{minutes}m{secs:02d}s"
     return f"{secs}s"
+
+
+def _open_debug_log_window() -> None:
+    """Open a new Terminal window showing live debug logs.
+
+    Uses AppleScript to open a new Terminal window with a tail -f command
+    that follows the debug log file with color-coded output.
+    """
+    if sys.platform != "darwin":
+        click.echo("⚠️  Log window only supported on macOS. Monitor logs with:")
+        click.echo(f"    tail -f {DEBUG_LOG_FILE}")
+        return
+
+    # Create a tail command with color highlighting for log levels
+    tail_cmd = f"tail -f {DEBUG_LOG_FILE} | " "grep --color=always -E 'ERROR|WARNING|INFO|DEBUG|$'"
+
+    # AppleScript to open new Terminal window
+    script = f"""
+tell application "Terminal"
+    activate
+    do script "{tail_cmd}"
+end tell
+"""
+
+    try:
+        subprocess.run(
+            ["osascript", "-e", script],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        click.echo(f"🪟  Debug log window opened (viewing {DEBUG_LOG_FILE})")
+    except subprocess.CalledProcessError:
+        click.echo("⚠️  Failed to open log window. Monitor logs with:")
+        click.echo(f"    tail -f {DEBUG_LOG_FILE}")
+    except FileNotFoundError:
+        click.echo("⚠️  AppleScript not available. Monitor logs with:")
+        click.echo(f"    tail -f {DEBUG_LOG_FILE}")
 
 
 def _print_execution_result(result: ExecutionResult) -> None:
@@ -126,9 +169,26 @@ def _today_stats() -> tuple[int, int]:
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug logging and open log window",
+)
 @click.version_option(__version__)
-def cli() -> None:
+@click.pass_context
+def cli(ctx: click.Context, debug: bool) -> None:
     """Clodputer CLI."""
+    if debug:
+        enable_debug_logging()
+        click.echo("🐛 Debug mode enabled")
+        click.echo(f"   Logs writing to {DEBUG_LOG_FILE}")
+
+        # Open log window automatically
+        _open_debug_log_window()
+        click.echo()
+
+        # Log the command being executed
+        debug_logger.info("cli_invoked", command=ctx.invoked_subcommand, args=sys.argv[1:])
 
 
 @cli.command()
@@ -644,6 +704,98 @@ def doctor() -> None:
         all_passed = all_passed and result.passed
 
     sys.exit(0 if all_passed else 1)
+
+
+@cli.group()
+def debug() -> None:
+    """Debug logging utilities."""
+    pass
+
+
+debug.add_command(debug_view_command)
+
+
+@debug.command(name="test-claude")
+def test_claude_command() -> None:
+    """Test Claude CLI health by sending a simple prompt.
+
+    Verifies that:
+    - Claude CLI executable is found and accessible
+    - Claude can process prompts and return JSON
+    - JSON parsing works correctly
+
+    This helps diagnose whether failures are from Claude CLI
+    or from your task configuration.
+    """
+    click.echo("🔍 Testing Claude CLI health...\n")
+
+    # Import here to avoid circular dependencies
+    from .executor import TaskExecutor
+    from .config import TaskConfig, TaskDefinition
+
+    # Create a minimal test task
+    test_config = TaskConfig(
+        name="health-check",
+        enabled=True,
+        priority="normal",
+        task=TaskDefinition(
+            prompt='Reply with JSON: {"status": "ok", "message": "Claude CLI is working"}',
+            timeout=30,
+        ),
+    )
+
+    # Create a test queue item
+    from .queue import QueueItem
+    import uuid
+
+    test_item = QueueItem(
+        id=f"health-{uuid.uuid4()}",
+        name="health-check",
+        priority="normal",
+        enqueued_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    )
+
+    # Execute the test
+    executor = TaskExecutor()
+    try:
+        result = executor._execute(test_config, queue_item=test_item, update_queue=False)
+
+        if result.status == "success":
+            click.echo("✅ Claude CLI is working correctly!\n")
+            click.echo(f"   Response time: {result.duration:.2f}s")
+            click.echo(f"   Return code: {result.return_code}")
+            if result.output_json:
+                click.echo(f"   JSON parsed: {result.output_json}")
+        elif result.status == "timeout":
+            click.echo("❌ Claude CLI timed out\n")
+            click.echo("   This suggests Claude CLI is slow or unresponsive")
+            click.echo(f"   Duration: {result.duration:.2f}s")
+            sys.exit(1)
+        else:
+            click.echo("❌ Claude CLI test failed\n")
+            if result.output_parse_error:
+                click.echo(f"   Parse error: {result.output_parse_error}")
+                click.echo(
+                    f"   Claude returned: {result.stdout[:200] if result.stdout else '(empty)'}"
+                )
+                click.echo("\n   Troubleshooting:")
+                click.echo("   - Check that Claude CLI is installed: which claude")
+                click.echo("   - Verify Claude CLI works: claude -p 'Hello' --output-format json")
+            else:
+                click.echo(f"   Return code: {result.return_code}")
+                click.echo(f"   Error: {result.error}")
+                if result.stderr:
+                    click.echo(f"   Stderr: {result.stderr[:200]}")
+            sys.exit(1)
+
+    except Exception as exc:
+        click.echo("❌ Claude CLI test failed with error\n")
+        click.echo(f"   Error: {exc}")
+        click.echo("\n   Troubleshooting:")
+        click.echo("   - Verify Claude CLI is installed: which claude")
+        click.echo("   - Check CLODPUTER_CLAUDE_BIN environment variable")
+        click.echo("   - Run: clodputer doctor")
+        sys.exit(1)
 
 
 def main() -> None:  # pragma: no cover

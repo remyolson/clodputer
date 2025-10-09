@@ -11,6 +11,7 @@ import subprocess
 import sys
 import textwrap
 import time
+import uuid
 from pathlib import Path
 from typing import List, Optional, Sequence
 
@@ -20,6 +21,7 @@ import click
 import yaml
 
 from .config import TASKS_DIR, TaskConfig, ensure_tasks_dir, validate_all_tasks
+from .debug import debug_logger
 from .formatting import (
     print_completion_header,
     print_dim,
@@ -195,8 +197,28 @@ def run_onboarding(reset: bool = False) -> None:
         >>> run_onboarding()  # First-time setup
         >>> run_onboarding(reset=True)  # Reconfigure from scratch
     """
+    # Generate operation ID for correlating all onboarding logs
+    operation_id = f"onboard-{uuid.uuid4().hex[:8]}"
+
+    debug_logger.info(
+        "onboarding_started",
+        description="🏁 Starting Clodputer onboarding",
+        tags=["onboarding", "start"],
+        marker="🏁",
+        summary={"operation_id": operation_id, "reset": reset},
+        operation_id=operation_id,
+        reset=reset,
+    )
 
     removed_paths = _reset_onboarding_state() if reset else []
+    if removed_paths:
+        debug_logger.info(
+            "onboarding_state_reset",
+            description=f"🔄 Reset onboarding state ({len(removed_paths)} files removed)",
+            tags=["onboarding", "reset"],
+            marker="🔄",
+            removed_paths=removed_paths,
+        )
 
     with OnboardingLogger():
         print_section_title("Clodputer Onboarding")
@@ -249,16 +271,43 @@ def run_onboarding(reset: bool = False) -> None:
         _render_doctor_summary(results)
         _record_onboarding_completion()
 
+        debug_logger.info(
+            "onboarding_completed",
+            description=f"🎉 Onboarding completed successfully ({len(configs)} tasks installed)",
+            tags=["onboarding", "completed", "success"],
+            marker="🎉",
+            summary={
+                "operation_id": operation_id,
+                "tasks_installed": len(configs),
+                "duration": "see elapsed field",
+            },
+            tasks_installed=len(configs),
+        )
+
 
 def _ensure_directories() -> None:
+    debug_logger.info("directory_setup_started")
+
     ensure_queue_dir()
+    debug_logger.info(
+        "directory_created", path=str(QUEUE_DIR), purpose="queue and state management"
+    )
+
     ensure_tasks_dir()
+    debug_logger.info("directory_created", path=str(TASKS_DIR), purpose="task YAML configurations")
+
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    debug_logger.info("directory_created", path=str(LOG_DIR), purpose="execution logs")
+
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    debug_logger.info("directory_created", path=str(ARCHIVE_DIR), purpose="archived task results")
+
     print_success(f"Ensured base directory at {QUEUE_DIR}")
     print_success(f"Ensured tasks directory at {TASKS_DIR}")
     print_success(f"Ensured logs directory at {LOG_DIR}")
     print_success(f"Ensured archive directory at {ARCHIVE_DIR}")
+
+    debug_logger.info("directory_setup_completed")
 
 
 def _onboarding_log_path() -> Path:
@@ -334,14 +383,19 @@ def _validate_user_path(path: Path, allow_create: bool = True) -> Path:
 
 
 def _choose_claude_cli() -> str:
+    debug_logger.info("claude_cli_detection_started")
+
     candidate = claude_cli_path(os.getenv("CLODPUTER_CLAUDE_BIN"))
     if candidate:
+        debug_logger.info("claude_cli_candidate_found", path=candidate)
         try:
             if Path(candidate).exists() and click.confirm(
                 f"  Use Claude CLI at {candidate}?", default=True
             ):
+                debug_logger.info("claude_cli_candidate_accepted", path=candidate)
                 return candidate
         except (OSError, ValueError) as exc:
+            debug_logger.warning("claude_cli_candidate_error", path=candidate, error=str(exc))
             print_warning(f"Cannot access {candidate}: {exc}")
             candidate = None
 
@@ -352,11 +406,16 @@ def _choose_claude_cli() -> str:
             path_text = click.prompt("  Enter path to Claude CLI executable")
         path = os.path.expanduser(path_text.strip())
 
+        debug_logger.debug("claude_cli_path_entered", path=path)
+
         try:
             if Path(path).exists():
+                debug_logger.info("claude_cli_path_valid", path=path)
                 return path
+            debug_logger.warning("claude_cli_path_not_found", path=path)
             print_error("Path not found. Please try again.")
         except (OSError, ValueError) as exc:
+            debug_logger.error("claude_cli_path_invalid", path=path, error=str(exc))
             print_error(f"Invalid path: {exc}")
             click.echo("    Please enter a valid file path.")
 
@@ -396,7 +455,14 @@ def _offer_template_install() -> None:
 
 
 def _offer_claude_md_update() -> None:
+    debug_logger.info("claude_md_update_started")
+
     candidates = _detect_claude_md_candidates()
+    debug_logger.info(
+        "claude_md_candidates_detected",
+        candidate_count=len(candidates),
+        paths=[str(c) for c in candidates],
+    )
 
     claude_md_path: Path | None = None
     if candidates:
@@ -432,10 +498,13 @@ def _offer_claude_md_update() -> None:
             raise
 
     if claude_md_path is None:
+        debug_logger.info("claude_md_update_skipped", reason="user declined or no path selected")
         print_dim("Skipped CLAUDE.md update.")
         return
 
+    debug_logger.info("claude_md_applying_update", path=str(claude_md_path))
     _apply_claude_md_update(claude_md_path)
+    debug_logger.info("claude_md_update_completed", path=str(claude_md_path))
 
 
 def _load_task_configs() -> tuple[List[TaskConfig], List[tuple[Path, str]]]:
@@ -468,14 +537,19 @@ def _offer_automation(configs: Optional[List[TaskConfig]] = None) -> List[TaskCo
 
 
 def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
+    debug_logger.info("cron_setup_started", config_count=len(configs))
+
     print_info("Cron scheduling")
     try:
         entries = scheduled_tasks(configs)
+        debug_logger.info("cron_entries_prepared", entry_count=len(entries))
     except CronError as exc:
+        debug_logger.error("cron_preparation_failed", error=str(exc))
         print_error(f"Unable to prepare cron entries: {exc}")
         return
 
     if not entries:
+        debug_logger.info("cron_setup_skipped", reason="no enabled cron or interval tasks")
         print_dim("No enabled cron or interval tasks found.")
         return
 
@@ -501,14 +575,22 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
                 click.echo(f"      - {dt_obj.isoformat()}")
 
     if not click.confirm("\n  Install these cron jobs now?", default=False):
+        debug_logger.info("cron_installation_skipped", reason="user declined")
         print_dim("Skipped cron installation.")
         return
 
+    debug_logger.info("cron_installation_started", entry_count=len(entries))
     print_info("Installing cron jobs...")
     try:
         result = install_cron_jobs(entries)
+        debug_logger.info(
+            "cron_installation_completed",
+            installed_count=result.get("installed", 0),
+            backup_path=result.get("backup"),
+        )
         print_success("Cron jobs installed successfully")
     except CronError as exc:
+        debug_logger.error("cron_installation_failed", error=str(exc))
         print_error(f"Failed to install cron jobs: {exc}")
         click.echo("     • macOS users: Grant Full Disk Access to Terminal in System Settings")
         click.echo("     • Or install manually later with: clodputer install")
@@ -618,29 +700,40 @@ def _launch_dashboard_terminal() -> None:
 
 
 def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
+    debug_logger.info("smoke_test_started")
+
     task_errors: List[tuple[Path, str]] = []
     if configs is None:
         configs, task_errors = _load_task_configs()
     else:
         configs = list(configs)
     if task_errors and not configs:
+        debug_logger.info("smoke_test_skipped", reason="configuration errors present")
         print_dim("Skipping smoke test until configuration errors are resolved.")
         return
 
     enabled_tasks = [task for task in configs if task.enabled]
     if not enabled_tasks:
+        debug_logger.info("smoke_test_skipped", reason="no enabled tasks available")
         print_dim("No enabled tasks available yet.")
         return
 
     # Check network connectivity before offering smoke test
-    if not _check_network_connectivity():
+    network_ok = _check_network_connectivity()
+    debug_logger.info("smoke_test_network_check", connected=network_ok)
+
+    if not network_ok:
         print_warning("Network connectivity issue detected.")
         click.echo("     Tasks may require internet access to complete successfully.")
         if not click.confirm("  Continue with smoke test anyway?", default=False):
+            debug_logger.info(
+                "smoke_test_skipped", reason="network connectivity issue and user declined"
+            )
             print_dim("Skipped smoke test. Check your network connection and try again.")
             return
 
     if not click.confirm("  Run a task now to verify end-to-end execution?", default=False):
+        debug_logger.info("smoke_test_skipped", reason="user declined")
         print_dim("Skipped smoke test.")
         return
 
@@ -654,11 +747,29 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
     )
     chosen = enabled_tasks[selection - 1]
 
+    debug_logger.info(
+        "smoke_test_task_selected", task_name=chosen.name, task_priority=chosen.priority
+    )
+
     print_info(f"Running task '{chosen.name}'...")
     executor = TaskExecutor()
     try:
+        debug_logger.info("smoke_test_execution_started", task_name=chosen.name)
         result = executor.run_task_by_name(chosen.name)
+        debug_logger.info(
+            "smoke_test_execution_completed",
+            task_name=chosen.name,
+            status=result.status,
+            duration=result.duration,
+            return_code=result.return_code,
+        )
     except TaskExecutionError as exc:
+        debug_logger.error(
+            "smoke_test_execution_error",
+            task_name=chosen.name,
+            error=str(exc),
+            error_type="TaskExecutionError",
+        )
         print_error(f"Task execution failed: {exc}")
         cli_path = claude_cli_path(None)
         click.echo("     • Check logs: clodputer logs --tail 20")
@@ -667,6 +778,12 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
         click.echo("     • Run diagnostics: clodputer doctor")
         return
     except Exception as exc:  # pragma: no cover - defensive
+        debug_logger.error(
+            "smoke_test_execution_unexpected_error",
+            task_name=chosen.name,
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
         print_error(f"Smoke test errored: {exc}")
         click.echo("     • Check logs: clodputer logs --tail 20")
         click.echo("     • Run diagnostics: clodputer doctor")
@@ -922,6 +1039,8 @@ def _apply_claude_md_update(path: Path) -> None:
 
 
 def _verify_claude_cli(path: str) -> None:
+    debug_logger.info("claude_cli_verification_started", path=path)
+
     try:
         result = subprocess.run(
             [path, "--version"],
@@ -930,9 +1049,22 @@ def _verify_claude_cli(path: str) -> None:
             check=False,
             timeout=CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS,
         )
+        debug_logger.subprocess(
+            "claude_cli_version_check",
+            command=f"{path} --version",
+            return_code=result.returncode,
+            stdout_length=len(result.stdout) if result.stdout else 0,
+            stderr_length=len(result.stderr) if result.stderr else 0,
+        )
     except FileNotFoundError as exc:
+        debug_logger.error("claude_cli_not_executable", path=path, error=str(exc))
         raise click.ClickException(f"Claude CLI not executable at {path}") from exc
     except subprocess.TimeoutExpired:
+        debug_logger.warning(
+            "claude_cli_version_timeout",
+            path=path,
+            timeout_seconds=CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS,
+        )
         print_warning(
             f"Claude CLI --version timed out after {CLAUDE_CLI_VERIFY_TIMEOUT_SECONDS} seconds."
         )
@@ -940,12 +1072,15 @@ def _verify_claude_cli(path: str) -> None:
         return
 
     if result.returncode != 0:
+        debug_logger.warning("claude_cli_version_nonzero_exit", return_code=result.returncode)
         print_warning("Unable to confirm Claude CLI version (non-zero exit code).")
     else:
         version_line = (result.stdout or result.stderr or "").strip().splitlines()[:1]
         if version_line:
+            debug_logger.info("claude_cli_version_detected", version=version_line[0])
             print_success(f"Detected Claude CLI: {version_line[0]}")
         else:
+            debug_logger.info("claude_cli_version_responded")
             print_success("Claude CLI responded to --version.")
 
 
@@ -1069,20 +1204,41 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         >>> tasks[0]["name"]
         'morning-email-triage'
     """
+    debug_logger.info("task_generation_started", mcp_count=len(mcps))
+
     try:
         # Get Claude CLI path
         cli_path = claude_cli_path(None)
         if not cli_path:
+            debug_logger.warning("task_generation_no_claude_cli")
             click.echo("    [debug] Claude CLI path not found", err=True)
             return None
 
         # Build the prompt
         prompt = _build_task_generation_prompt(mcps)
 
+        # Log FULL prompt being sent to Claude (critical for debugging)
+        debug_logger.info(
+            "task_generation_prompt_built",
+            prompt=prompt,
+            prompt_length=len(prompt),
+            mcp_count=len(mcps),
+            connected_mcp_count=len([m for m in mcps if m["status"] == "connected"]),
+        )
+
         # Invoke Claude Code in non-interactive mode
         cmd = [cli_path, "--print", "--output-format", "json"]
+
+        # Log FULL command
+        debug_logger.info(
+            "task_generation_command_built",
+            command=cmd,
+            command_string=" ".join(cmd),
+        )
+
+        debug_logger.subprocess("task_generation_claude_starting", command=" ".join(cmd))
         click.echo(f"    [debug] Running: {' '.join(cmd)}", err=True)
-        click.echo(f"    [debug] Prompt length: {len(prompt)} chars", err=True)
+        click.echo(f"    [debug] Sending prompt ({len(prompt)} chars) to Claude", err=True)
 
         result = subprocess.run(
             cmd,
@@ -1093,7 +1249,24 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
             check=False,
         )
 
+        # Log FULL response from Claude (critical for debugging)
+        debug_logger.info(
+            "task_generation_claude_response_received",
+            command=" ".join(cmd),
+            return_code=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            stdout_length=len(result.stdout) if result.stdout else 0,
+            stderr_length=len(result.stderr) if result.stderr else 0,
+        )
+
         if result.returncode != 0:
+            debug_logger.warning(
+                "task_generation_nonzero_exit",
+                return_code=result.returncode,
+                full_stderr=result.stderr,
+                full_stdout=result.stdout,
+            )
             click.echo(f"    [debug] Claude CLI returned code {result.returncode}", err=True)
             if result.stderr:
                 click.echo(f"    [debug] stderr: {result.stderr}", err=True)
@@ -1102,13 +1275,25 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
             return None
 
         # Show what we got back
-        click.echo(f"    [debug] Claude CLI succeeded, stdout length: {len(result.stdout)} chars", err=True)
+        click.echo(
+            f"    [debug] Claude CLI succeeded, stdout length: {len(result.stdout)} chars", err=True
+        )
         click.echo(f"    [debug] First 500 chars of stdout: {result.stdout[:500]}", err=True)
 
         # Parse JSON response
         try:
             response = json_module.loads(result.stdout)
+            debug_logger.info(
+                "task_generation_json_parsed_successfully",
+                response_type=type(response).__name__,
+                response=response,
+            )
         except json_module.JSONDecodeError as exc:
+            debug_logger.error(
+                "task_generation_json_parse_error",
+                error=str(exc),
+                full_stdout=result.stdout,
+            )
             click.echo(f"    [debug] JSON parse error: {exc}", err=True)
             click.echo(f"    [debug] Full stdout: {result.stdout}", err=True)
             return None
@@ -1119,17 +1304,25 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
             click.echo(f"    [debug] Response keys: {list(response.keys())}", err=True)
 
         if not isinstance(response, dict) or "tasks" not in response:
+            debug_logger.error(
+                "task_generation_invalid_response_structure",
+                response_type=type(response).__name__,
+                response=response,
+                has_tasks_key="tasks" in response if isinstance(response, dict) else False,
+            )
             click.echo("    [debug] Invalid response structure", err=True)
             click.echo(f"    [debug] Full response: {response}", err=True)
             return None
 
         tasks = response["tasks"]
         if not isinstance(tasks, list):
+            debug_logger.error("task_generation_tasks_not_list")
             click.echo("    [debug] 'tasks' is not a list", err=True)
             return None
 
         # Accept 1-3 tasks (not strict on 3)
         if len(tasks) == 0 or len(tasks) > 3:
+            debug_logger.warning("task_generation_invalid_task_count", task_count=len(tasks))
             click.echo(f"    [debug] Got {len(tasks)} tasks, expected 1-3", err=True)
             return None
 
@@ -1138,22 +1331,32 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         for idx, task in enumerate(tasks):
             if _validate_generated_task(task):
                 validated_tasks.append(task)
+                debug_logger.debug(
+                    "task_generation_task_validated", task_index=idx, task_name=task.get("name")
+                )
             else:
+                debug_logger.warning("task_generation_task_validation_failed", task_index=idx)
                 click.echo(f"    [debug] Task {idx + 1} failed validation", err=True)
 
         # Need at least 1 valid task
         if not validated_tasks:
+            debug_logger.warning("task_generation_no_valid_tasks")
             click.echo("    [debug] No tasks passed validation", err=True)
             return None
 
+        debug_logger.info("task_generation_completed", validated_task_count=len(validated_tasks))
         return validated_tasks
 
     except subprocess.TimeoutExpired:
+        debug_logger.warning(
+            "task_generation_timeout", timeout_seconds=TASK_GENERATION_TIMEOUT_SECONDS
+        )
         click.echo(
             f"    [debug] Generation timed out after {TASK_GENERATION_TIMEOUT_SECONDS}s", err=True
         )
         return None
     except (FileNotFoundError, OSError) as exc:
+        debug_logger.error("task_generation_subprocess_error", error=str(exc))
         click.echo(f"    [debug] Subprocess error: {exc}", err=True)
         return None
 
@@ -1222,14 +1425,34 @@ def _detect_available_mcps() -> list[dict]:
         >>> [m["name"] for m in mcps if m["status"] == "connected"]
         ['gmail', 'calendar', 'crawl4ai']
     """
+    debug_logger.info(
+        "mcp_detection_started",
+        description="🔍 Detecting available MCP servers",
+        tags=["mcp", "detection", "start"],
+        marker="🔍",
+    )
+
     try:
         # Get the claude CLI path
         cli_path = claude_cli_path(None)
         if not cli_path:
+            debug_logger.warning(
+                "mcp_detection_no_claude_cli",
+                description="⚠️ Claude CLI path not found, cannot detect MCPs",
+                tags=["mcp", "detection", "error"],
+                marker="⚠️",
+            )
             return []
 
         # Run `claude mcp list` from home directory to ensure all user-scope MCPs are visible
         # (MCP visibility can vary based on working directory due to project-level configs)
+        debug_logger.subprocess(
+            "mcp_list_command_starting",
+            command=f"{cli_path} mcp list",
+            description="🔌 Running 'claude mcp list'",
+            tags=["mcp", "claude", "list"],
+        )
+
         result = subprocess.run(
             [cli_path, "mcp", "list"],
             capture_output=True,
@@ -1239,13 +1462,41 @@ def _detect_available_mcps() -> list[dict]:
             cwd=str(Path.home()),
         )
 
+        debug_logger.subprocess(
+            "mcp_list_command_completed",
+            command=f"{cli_path} mcp list",
+            return_code=result.returncode,
+            stdout_length=len(result.stdout) if result.stdout else 0,
+            stderr_length=len(result.stderr) if result.stderr else 0,
+        )
+
         if result.returncode != 0:
+            debug_logger.warning("mcp_detection_nonzero_exit", return_code=result.returncode)
             return []
 
         # Parse the output
-        return _parse_mcp_list_output(result.stdout)
+        mcps = _parse_mcp_list_output(result.stdout)
+        connected_count = sum(1 for m in mcps if m["status"] == "connected")
+        debug_logger.info(
+            "mcp_detection_completed",
+            description=f"✅ Found {len(mcps)} MCP servers ({connected_count} connected)",
+            tags=["mcp", "detection", "completed", "success"],
+            marker="✅",
+            summary={
+                "total_mcps": len(mcps),
+                "connected": connected_count,
+                "failed": len(mcps) - connected_count,
+            },
+            mcp_count=len(mcps),
+            mcps=[m["name"] for m in mcps],
+        )
+        return mcps
 
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except subprocess.TimeoutExpired:
+        debug_logger.warning("mcp_detection_timeout")
+        return []
+    except (FileNotFoundError, OSError) as exc:
+        debug_logger.error("mcp_detection_error", error=str(exc))
         return []
 
 
@@ -1329,7 +1580,9 @@ def _offer_intelligent_task_generation() -> bool:
     if mcps:
         click.echo(f"    Found {len(mcps)} MCP(s), {connected_count} connected")
         click.echo(f"    [debug] MCPs detected: {[m['name'] for m in mcps]}", err=True)
-        click.echo(f"    [debug] MCP statuses: {[(m['name'], m['status']) for m in mcps]}", err=True)
+        click.echo(
+            f"    [debug] MCP statuses: {[(m['name'], m['status']) for m in mcps]}", err=True
+        )
     else:
         click.echo("    No MCPs detected")
 

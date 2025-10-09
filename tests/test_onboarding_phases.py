@@ -1,5 +1,6 @@
 """Tests for onboarding phases: templates, CLAUDE.md, automation, runtime shortcuts, and smoke tests."""
 
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -59,7 +60,8 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -134,7 +136,8 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -191,7 +194,8 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -286,7 +290,8 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -359,7 +364,8 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
         onboarding,
         "subprocess",
         SimpleNamespace(
-            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0")
+            run=lambda *_, **__: SimpleNamespace(returncode=0, stdout="Claude CLI 1.0", stderr=""),
+            TimeoutExpired=subprocess.TimeoutExpired,
         ),
     )
 
@@ -448,14 +454,17 @@ def test_offer_watcher_setup_creates_path_and_starts_daemon(monkeypatch, tmp_pat
 
 
 def test_offer_smoke_test_runs_selected_task(monkeypatch):
-    from clodputer import onboarding
+    from clodputer import onboarding, formatting
     from clodputer.config import TaskConfig, TaskSpec
 
-    task = TaskConfig(name="demo", task=TaskSpec(prompt="hello"))
+    task = TaskConfig(name="demo", task=TaskSpec(prompt="hello"), enabled=True)
 
     confirmations = iter([True])
     monkeypatch.setattr(onboarding.click, "confirm", lambda *_, **__: next(confirmations))
     monkeypatch.setattr(onboarding.click, "prompt", lambda *_, **__: 1)
+
+    # Mock network check to return True
+    monkeypatch.setattr(onboarding, "_check_network_connectivity", lambda: True)
 
     executed: dict[str, str] = {}
 
@@ -466,6 +475,7 @@ def test_offer_smoke_test_runs_selected_task(monkeypatch):
                 status="success",
                 task_name=name,
                 duration=2.5,
+                return_code=0,
                 output_json={"ok": True},
                 output_parse_error=None,
                 error=None,
@@ -476,7 +486,9 @@ def test_offer_smoke_test_runs_selected_task(monkeypatch):
 
     monkeypatch.setattr(onboarding, "TaskExecutor", lambda: FakeExecutor())
     outputs: list[str] = []
+    # Mock click.echo in both onboarding and formatting modules
     monkeypatch.setattr(onboarding.click, "echo", lambda message: outputs.append(message))
+    monkeypatch.setattr(formatting.click, "echo", lambda message: outputs.append(message))
 
     onboarding._offer_smoke_test([task])
 

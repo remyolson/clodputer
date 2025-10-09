@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import psutil
 
+from .debug import debug_logger
 from .metrics import metrics_summary
 from .settings import load_settings
 
@@ -194,6 +195,8 @@ class QueueManager:
         if self._lock_acquired:
             return
 
+        debug_logger.debug("queue_lock_acquisition_attempt", pid=os.getpid())
+
         if self.lock_file.exists():
             try:
                 existing_pid = int(self.lock_file.read_text().strip())
@@ -201,13 +204,18 @@ class QueueManager:
                 existing_pid = -1
 
             if existing_pid > 0 and psutil.pid_exists(existing_pid):
+                debug_logger.warning(
+                    "queue_lock_already_held", existing_pid=existing_pid, current_pid=os.getpid()
+                )
                 raise LockAcquisitionError(f"Clodputer queue already locked by PID {existing_pid}")
 
+            debug_logger.info("queue_lock_stale_removed", stale_pid=existing_pid)
             logger.warning("Removing stale lock file at %s", self.lock_file)
             self.lock_file.unlink(missing_ok=True)
 
         self.lock_file.write_text(str(os.getpid()))
         self._lock_acquired = True
+        debug_logger.info("queue_lock_acquired", pid=os.getpid())
 
     def release_lock(self) -> None:
         if self._lock_acquired and self.lock_file.exists():
@@ -254,6 +262,13 @@ class QueueManager:
         self._state.queued = self._sorted_queue(self._state.queued)
         self._persist_state()
         logger.info("Enqueued task %s (%s)", item.name, item.id)
+        debug_logger.state_change(
+            "queue_task_enqueued",
+            task_id=task_id,
+            task_name=task_name,
+            priority=priority,
+            queue_position=len(self._state.queued),
+        )
         return item
 
     def get_next_task(self) -> Optional[QueueItem]:
@@ -285,6 +300,12 @@ class QueueManager:
         self._state.running = running
         self._persist_state()
         logger.info("Task %s (%s) marked running with pid %s", item.name, item.id, pid)
+        debug_logger.state_change(
+            "queue_task_running",
+            task_id=task_id,
+            task_name=item.name,
+            pid=pid,
+        )
         return running
 
     def mark_completed(self, task_id: str, result: Dict[str, Any]) -> None:
@@ -302,6 +323,12 @@ class QueueManager:
         self._state.running = None
         self._persist_state()
         logger.info("Task %s (%s) marked completed", running.name, running.id)
+        debug_logger.state_change(
+            "queue_task_completed",
+            task_id=task_id,
+            task_name=running.name,
+            duration=result.get("duration"),
+        )
 
     def mark_failed(self, task_id: str, error: Dict[str, Any]) -> None:
         running = self._state.running
@@ -318,6 +345,12 @@ class QueueManager:
         self._state.running = None
         self._persist_state()
         logger.info("Task %s (%s) marked failed", running.name, running.id)
+        debug_logger.state_change(
+            "queue_task_failed",
+            task_id=task_id,
+            task_name=running.name,
+            error_type=error.get("error"),
+        )
 
     def cancel(self, task_id: str) -> bool:
         item, index = self._find_queue_item(task_id)

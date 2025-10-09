@@ -95,6 +95,7 @@ omit = [
     "src/clodputer/dashboard.py",
     "src/clodputer/watcher.py",
     "src/clodputer/manager.py",
+    "src/clodputer/debug_viewer.py",
 ]
 
 [tool.coverage.report]
