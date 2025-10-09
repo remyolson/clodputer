@@ -69,7 +69,7 @@ def load_task_states() -> dict[str, TaskState]:
             states[task_name] = TaskState.from_dict(state_dict)
         return states
 
-    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, AttributeError):
         # Corrupted file - move to backup and return empty
         _backup_corrupted_state()
         return {}

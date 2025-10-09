@@ -154,6 +154,78 @@ class TestTaskState:
         assert state.last_run != state.last_success
         assert state.last_success == first_success  # Success timestamp unchanged
 
+    def test_load_task_states_corrupted_json(self, isolated_task_state):
+        """Test loading task states when JSON is corrupted."""
+        # Write invalid JSON
+        isolated_task_state.parent.mkdir(parents=True, exist_ok=True)
+        isolated_task_state.write_text("{ invalid json }", encoding="utf-8")
+
+        # Should return empty dict and create backup
+        states = load_task_states()
+        assert states == {}
+
+        # Verify backup was created
+        backups = list(isolated_task_state.parent.glob("*.corrupted"))
+        assert len(backups) == 1
+
+    def test_load_task_states_invalid_structure(self, isolated_task_state):
+        """Test loading task states when structure is invalid."""
+        # Write valid JSON but invalid structure (list instead of dict)
+        isolated_task_state.parent.mkdir(parents=True, exist_ok=True)
+        isolated_task_state.write_text('["not", "a", "dict"]', encoding="utf-8")
+
+        # Should return empty dict
+        states = load_task_states()
+        assert states == {}
+
+    def test_save_task_states_write_error(self, isolated_task_state):
+        """Test handling write errors during save."""
+        import os
+        import stat
+
+        # Create the directory but make it read-only
+        isolated_task_state.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(isolated_task_state.parent, stat.S_IRUSR | stat.S_IXUSR)
+
+        states = {"task1": TaskState(last_run="2025-10-09T08:00:00Z")}
+
+        try:
+            # Should raise OSError (permission denied)
+            with pytest.raises(OSError):
+                save_task_states(states)
+        finally:
+            # Restore write permissions for cleanup
+            os.chmod(isolated_task_state.parent, stat.S_IRWXU)
+
+    def test_backup_corrupted_state(self, isolated_task_state):
+        """Test backing up corrupted state file."""
+        from clodputer.task_state import _backup_corrupted_state
+
+        # Create a corrupted state file
+        isolated_task_state.parent.mkdir(parents=True, exist_ok=True)
+        isolated_task_state.write_text("corrupted", encoding="utf-8")
+
+        # Backup the corrupted file
+        _backup_corrupted_state()
+
+        # Original file should be gone
+        assert not isolated_task_state.exists()
+
+        # Backup should exist
+        backups = list(isolated_task_state.parent.glob("*.corrupted"))
+        assert len(backups) == 1
+
+    def test_backup_corrupted_state_nonexistent(self, isolated_task_state):
+        """Test backing up when state file doesn't exist."""
+        from clodputer.task_state import _backup_corrupted_state
+
+        # Call on nonexistent file (should be no-op)
+        _backup_corrupted_state()
+
+        # No backup should be created
+        backups = list(isolated_task_state.parent.glob("*.corrupted")) if isolated_task_state.parent.exists() else []
+        assert len(backups) == 0
+
 
 class TestCalculateNextExpectedRun:
     """Tests for calculating next expected run time."""
@@ -390,6 +462,19 @@ class TestDetectMissedTasks:
         # Set invalid timestamp
         update_task_state("test", last_success="invalid-timestamp")
 
+        missed = detect_missed_tasks([task])
+        assert missed == []
+
+    def test_detect_missed_tasks_invalid_cron_expression(self, isolated_task_state):
+        """Test handling of invalid cron expressions."""
+        # Create task with invalid cron expression (will pass config validation but fail at runtime)
+        task = make_task("test", "invalid cron", catch_up="run_once")
+
+        # Record a previous run
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        update_task_state("test", last_success=yesterday.strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+        # Should handle the invalid cron gracefully and return no missed tasks
         missed = detect_missed_tasks([task])
         assert missed == []
 
