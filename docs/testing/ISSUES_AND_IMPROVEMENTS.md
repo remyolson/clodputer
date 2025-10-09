@@ -1,6 +1,6 @@
 # Clodputer Testing: Issues and Improvements Tracker
 
-**Last Updated**: 2025-01-09
+**Last Updated**: 2025-10-09
 
 This document tracks all issues, bugs, and improvements discovered during testing. Each entry references the test run where it was found and includes priority, status, and resolution tracking.
 
@@ -31,7 +31,7 @@ _No critical issues identified yet._
 ### Issue #1: No Non-Interactive Onboarding Mode
 
 **Priority**: 🟠 High
-**Status**: 🔵 Open
+**Status**: 🟢 Fixed
 **Found In**: Test Run #001 - 2025-10-09
 **Affects**: Onboarding, Testing, CI/CD
 
@@ -80,8 +80,24 @@ clodputer init --config onboarding.yaml
 
 **Related Issues**: None
 
-**Resolution** (if Fixed/Verified):
-_Not yet fixed_
+**Resolution**:
+- **Fixed In**: Commit 94a25a5 - 2025-10-09
+- **Fix Description**:
+  - Added CLI flags: `--claude-cli <path>`, `--yes`, `--no-templates`, `--no-automation`
+  - Environment variable support: `CLODPUTER_CLAUDE_BIN`
+  - Updated all onboarding helper functions to accept `non_interactive` parameter
+  - Functions gracefully handle non-interactive mode with appropriate defaults
+  - All 164 tests pass (backward compatible implementation)
+- **Verification**: Pending Test Run #002
+- **Usage Examples**:
+  ```bash
+  # Full non-interactive mode
+  clodputer init --claude-cli /path/to/claude --yes --no-templates --no-automation
+
+  # With environment variable
+  export CLODPUTER_CLAUDE_BIN=/path/to/claude
+  clodputer init --yes
+  ```
 
 ---
 
@@ -90,7 +106,7 @@ _Not yet fixed_
 ### Issue #2: Incorrect Default Claude CLI Path
 
 **Priority**: 🟡 Medium
-**Status**: 🔵 Open
+**Status**: 🟢 Fixed
 **Found In**: Test Run #001 - 2025-10-09
 **Affects**: Onboarding (Step 2/7 - Claude CLI Configuration)
 
@@ -145,15 +161,27 @@ The onboarding process offers `/usr/bin/claude` as the default Claude CLI path, 
 
 **Related Issues**: None
 
-**Resolution** (if Fixed/Verified):
-_Not yet fixed_
+**Resolution**:
+- **Fixed In**: Commit 94a25a5 - 2025-10-09
+- **Fix Description**:
+  - Confirmed auto-detection logic already exists in `environment.py:claude_cli_path()`
+  - Updated `_choose_claude_cli()` to properly utilize auto-detection in priority order:
+    1. Explicit CLI flag (`--claude-cli`)
+    2. Environment variable (`CLODPUTER_CLAUDE_BIN`)
+    3. Stored path from state file
+    4. Runtime detection via `which claude`
+    5. Common installation paths (`~/.claude/local/claude`, `/opt/homebrew/bin/claude`)
+  - Interactive mode now prompts with detected path as default
+  - Non-interactive mode uses auto-detection without prompts
+- **Verification**: Pending Test Run #002
+- **Auto-Detection Order**: Explicit → Env Var → Stored → `which` → Common Paths
 
 ---
 
 ### Issue #3: Installation Method Unclear for macOS Users
 
 **Priority**: 🟡 Medium
-**Status**: 🔵 Open
+**Status**: 🟢 Fixed
 **Found In**: Test Run #001 - 2025-10-09
 **Affects**: Installation, Documentation
 
@@ -212,8 +240,21 @@ pip install -e ".[dev]"
 
 **Related Issues**: None
 
-**Resolution** (if Fixed/Verified):
-_Not yet fixed_
+**Resolution**:
+- **Fixed In**: Commit 94a25a5 - 2025-10-09
+- **Fix Description**:
+  - Updated README.md Installation section with clear guidance:
+    - Added note that package is currently developer preview (source-only)
+    - Reorganized to show "From Source" as current installation method
+    - Added "Platform Notes" section highlighting macOS PEP 668 issue
+    - Included warning against using `--break-system-packages`
+    - Documented future pipx installation method (when published to PyPI)
+    - Clarified Linux also has externally managed Python
+  - Clear distinction between:
+    - Current: Source installation with venv (developer preview)
+    - Future: pipx installation (when published to PyPI)
+- **Verification**: Documentation review completed
+- **User Impact**: Clear installation path reduces confusion and prevents system Python damage
 
 ---
 
@@ -304,10 +345,10 @@ _No archived issues yet._
 
 - **Total Issues Logged**: 3
 - **Critical Open**: 0
-- **High Open**: 1 (Issue #1)
-- **Medium Open**: 2 (Issues #2, #3)
+- **High Open**: 0
+- **Medium Open**: 0
 - **Low Open**: 0
 - **In Progress**: 0
-- **Fixed (Pending Verification)**: 0
+- **Fixed (Pending Verification)**: 3 (Issues #1, #2, #3)
 - **Verified**: 0
-- **Test Runs Completed**: 1 (Test Run #001 - In Progress)
+- **Test Runs Completed**: 1 (Test Run #001 - Completed)
