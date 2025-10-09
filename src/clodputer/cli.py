@@ -9,6 +9,7 @@ Commands included:
 - clodputer logs
 - clodputer list
 - clodputer queue
+- clodputer catch-up
 - clodputer install
 - clodputer uninstall
 - clodputer watch
@@ -32,6 +33,7 @@ from typing import Iterable, Optional
 import click
 import json
 
+from .catch_up import detect_missed_tasks
 from .config import ConfigError, TASKS_DIR, ensure_tasks_dir, load_task_by_name, validate_all_tasks
 from .cron import (
     CRON_LOG_FILE,
@@ -102,7 +104,7 @@ def _open_debug_log_window() -> None:
         return
 
     # Create a tail command with color highlighting for log levels
-    tail_cmd = f"tail -f {DEBUG_LOG_FILE} | " "grep --color=always -E 'ERROR|WARNING|INFO|DEBUG|$'"
+    tail_cmd = f"tail -f {DEBUG_LOG_FILE} | grep --color=always -E 'ERROR|WARNING|INFO|DEBUG|$'"
 
     # AppleScript to open new Terminal window
     script = f"""
@@ -490,6 +492,70 @@ def queue(clear: bool) -> None:
                 click.echo(
                     f" • {name}: success={stats['success']} failure={stats['failure']} avg_duration={stats['avg_duration']:.2f}s"
                 )
+
+
+@cli.command(name="catch-up")
+@click.option("--dry-run", is_flag=True, help="Show missed tasks without queueing them.")
+def catch_up_command(dry_run: bool) -> None:
+    """Check for missed scheduled tasks and queue them for catch-up.
+
+    This command detects tasks that:
+    1. Have catch_up enabled (run_once or run_all)
+    2. Missed their scheduled run time(s)
+    3. Have a record of previous successful runs
+
+    Missed tasks are queued with [CATCH-UP] marker in logs.
+    """
+    configs, errors = validate_all_tasks()
+    if errors:
+        click.echo("⚠️  Some task configs are invalid; skipping catch-up check:")
+        for path, err in errors:
+            click.echo(f" • {path}: {err}")
+        return
+
+    # Detect missed tasks
+    missed = detect_missed_tasks(configs)
+
+    if not missed:
+        click.echo("✅ No missed tasks to catch up.")
+        return
+
+    # Group by task name for clearer output
+    by_task = {}
+    for miss in missed:
+        if miss.task_name not in by_task:
+            by_task[miss.task_name] = []
+        by_task[miss.task_name].append(miss)
+
+    click.echo(f"Found {len(missed)} missed task run(s) across {len(by_task)} task(s):\n")
+
+    for task_name, misses in by_task.items():
+        config = next((c for c in configs if c.name == task_name), None)
+        catch_up_mode = config.schedule.catch_up if config and config.schedule else "skip"
+
+        click.echo(f" • {task_name} ({catch_up_mode}): {len(misses)} missed run(s)")
+        for miss in misses:
+            click.echo(f"   - Missed at: {miss.missed_at}")
+
+    if dry_run:
+        click.echo("\n(Dry run - tasks not queued)")
+        return
+
+    # Queue missed tasks
+    click.echo()
+    queued_count = 0
+    with QueueManager() as queue:
+        for miss in missed:
+            item = queue.enqueue(
+                miss.task_name,
+                priority="normal",
+                metadata={"catch_up": True, "missed_at": miss.missed_at},
+            )
+            click.echo(f"[CATCH-UP] Queued {miss.task_name} (missed {miss.missed_at})")
+            queued_count += 1
+
+    click.echo(f"\n✅ Queued {queued_count} catch-up task(s).")
+    click.echo("   Run `clodputer run <task>` or wait for queue processing.")
 
 
 @cli.command()

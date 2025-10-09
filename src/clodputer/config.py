@@ -47,6 +47,7 @@ class ScheduleConfig(BaseModel):
     type: Literal["cron"]
     expression: str
     timezone: Optional[str] = None
+    catch_up: Literal["skip", "run_once", "run_all"] = "skip"
 
 
 class ManualTrigger(BaseModel):

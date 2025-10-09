@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Literal, Optional, Protocol, Tuple
 import uuid
 
+from .catch_up import calculate_next_expected_run
 from .cleanup import CleanupReport, cleanup_process_tree
 from .config import ConfigError, TaskConfig, load_task_by_name, load_task_config
 from .debug import debug_logger
@@ -32,6 +33,7 @@ from .environment import claude_cli_path, store_claude_cli_path
 from .logger import StructuredLogger
 from .metrics import record_failure, record_success
 from .queue import LockAcquisitionError, QueueCorruptionError, QueueItem, QueueManager
+from .task_state import record_task_execution
 
 logger = logging.getLogger(__name__)
 
@@ -552,8 +554,15 @@ class TaskExecutor:
 
         if status == "success":
             record_success(config.name, duration)
+            # Record task state for catch-up logic
+            next_expected = None
+            if config.schedule:
+                next_expected = calculate_next_expected_run(config.schedule)
+            record_task_execution(config.name, success=True, next_expected=next_expected)
         else:
             record_failure(config.name)
+            # Record failed execution (but don't update next_expected)
+            record_task_execution(config.name, success=False)
 
         # Determine appropriate marker based on status
         status_markers = {
