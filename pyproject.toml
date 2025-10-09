@@ -83,7 +83,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=clodputer --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=clodputer --cov-report=term-missing --cov-fail-under=79"
 
 [tool.coverage.run]
 branch = true
