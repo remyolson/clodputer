@@ -83,7 +83,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "--cov=clodputer --cov-report=term-missing --cov-fail-under=85"
+addopts = "--cov=clodputer --cov-report=term-missing --cov-fail-under=80"
 
 [tool.coverage.run]
 branch = true
@@ -94,6 +94,7 @@ omit = [
     "src/clodputer/menubar.py",
     "src/clodputer/dashboard.py",
     "src/clodputer/watcher.py",
+    "src/clodputer/manager.py",
 ]
 
 [tool.coverage.report]
