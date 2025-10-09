@@ -84,10 +84,13 @@ The interactive wizard will guide you through setup:
 - Sets up state file (`env.json`) with automatic backup/recovery
 - All paths validated for security
 
-**3. Template Installation (Optional)**
-- Browse and select from packaged starter templates
-- Templates are copied to `~/.clodputer/tasks/`
-- Skip if you want to create tasks from scratch
+**3. Intelligent Task Generation (Optional)**
+- 🤖 **AI-Powered**: Analyzes your Claude Code MCP setup
+- 🎯 **Personalized**: Generates 3 task suggestions tailored to your MCPs
+- 📧 **Smart**: Email MCP → email triage tasks, Calendar MCP → meeting prep, etc.
+- 🔒 **Safe**: All generated tasks are validated for security (no destructive commands)
+- ⚡ **Fast**: 30-60 second generation, or skip to use templates
+- **Fallback**: If generation fails or is declined, offers packaged templates instead
 
 **4. CLAUDE.md Update (Optional)**
 - If you have a `~/CLAUDE.md` file, offers to add Clodputer guidance

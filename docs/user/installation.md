@@ -97,7 +97,8 @@ clodputer init        # guided onboarding
 - `clodputer init` - **Interactive setup wizard** that:
   - Detects and validates your Claude CLI (with timeout protection)
   - Creates directory structure with automatic backups
-  - Offers template installation
+  - **🤖 AI-powered task generation** - Analyzes your MCPs and generates personalized task suggestions
+  - Offers packaged templates as fallback
   - Optionally updates your CLAUDE.md with Clodputer guidance
   - Sets up automation (cron, file watcher)
   - Runs a smoke test to verify everything works
