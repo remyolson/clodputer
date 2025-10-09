@@ -66,9 +66,10 @@
 **Goal:** Make dashboard and menu bar delightful
 **Priority:** High - Increases engagement
 
-### Phase 5: Smart Features (Weeks 13-16)
-**Goal:** Add intelligence that improves over time
+### Phase 5: Silent Intelligence (Weeks 13-16)
+**Goal:** System silently learns and optimizes without user intervention
 **Priority:** Medium - Differentiator
+**Philosophy:** Zero notifications, zero suggestions - pure "set it and forget it"
 
 ### Phase 6: Community & Scale (Beyond Week 16)
 **Goal:** Enable sharing, learning, optimization
@@ -801,174 +802,193 @@
 
 ---
 
-## 📅 Phase 5: Smart Features (Weeks 13-16)
+## 📅 Phase 5: Silent Intelligence (Weeks 13-16)
 
 **Timeline:** 4 weeks
-**Goal:** System learns and improves itself over time
+**Goal:** System silently learns and optimizes itself without user intervention
 
-### Feature 5.1: Smart Task Suggestions (Weeks 13-14)
-**Problem:** Users don't know what else they could automate
+**Philosophy:** True "set it and forget it" - system improves invisibly in the background. No recommendations, notifications, or suggestions to users. Intelligence is passive and user-initiated only.
+
+### Feature 5.1: Silent Task Optimization (Weeks 13-14)
+**Problem:** Tasks could be more efficient but system doesn't learn from patterns
 
 **Implementation:**
 ```
-1. Create suggestion engine
-   - Runs weekly as scheduled task
-   - Analyzes recent task executions
-   - Identifies patterns and opportunities
-   - Uses Claude to generate suggestions
+1. Pattern analysis (runs silently in background)
+   - Analyze recent task executions
+   - Identify optimization opportunities
+   - Track success/failure patterns
+   - Monitor resource usage trends
+   - No user-facing output
 
-2. Analyze execution patterns
-   - Which tasks run most frequently?
-   - Which tasks take longest?
-   - Which tasks fail most often?
-   - Which tools are used most?
-   - Which times are busiest?
+2. Auto-optimize task configurations
+   Silent improvements:
+   - Increase timeout after 3+ consecutive timeout failures
+   - Reduce timeout after 10+ successful faster runs
+   - Adjust retry delays based on historical success
+   - Optimize priority based on dependencies
+   - Add retry logic to frequently-failing tasks
 
-3. Generate suggestions
-   Suggest improvements:
-   - "Task X fails often. Try adding retry logic?"
-   - "Task Y runs manually. Want to schedule it?"
-   - "Task Z is slow. Consider splitting it?"
+3. Task prompt enrichment
+   - Add relevant context from previous runs
+   - Include error patterns to avoid
+   - Reference successful approaches
+   - Update prompts automatically (with backup)
 
-   Suggest new tasks:
-   - "You use Gmail MCP often. Try email summarization?"
-   - "You run tasks at 8am daily. Add morning briefing?"
-   - "You have lots of git tasks. Try weekly repo health check?"
+4. Resource optimization
+   - Schedule resource-heavy tasks during low usage
+   - Batch similar tasks for efficiency
+   - Defer non-urgent tasks when system busy
+   - All adjustments happen silently
 
-4. Present suggestions
-   - Store in ~/.clodputer/suggestions.json
-   - Show in dashboard: "💡 3 suggestions available"
-   - Add command: `clodputer suggestions`
-   - Show in menu bar (optional)
-
-5. Accept/reject suggestions
-   - Show suggestion with reasoning
-   - Preview generated task
-   - Accept: creates task immediately
-   - Reject: marks as dismissed
-   - "Don't show suggestions like this": learns preference
+5. Learning database
+   - Store optimization decisions
+   - Track success rate improvements
+   - Build pattern library
+   - Never present to user unless they ask
 ```
 
 **Files to Modify:**
-- `src/clodputer/suggestions.py` - New module
-- `src/clodputer/cli.py` - Add suggestions command
-- `src/clodputer/dashboard.py` - Display suggestions
-- `tasks/` - Add weekly-suggestions.yaml task
-- `tests/test_suggestions.py` - Test suggestion engine
+- `src/clodputer/optimization.py` - New module (silent optimizer)
+- `src/clodputer/executor.py` - Apply optimizations during execution
+- `src/clodputer/config.py` - Support dynamic config updates
+- `tasks/` - Add silent-optimizer.yaml (runs weekly)
+- `tests/test_optimization.py` - Test optimization logic
 
 **Success Criteria:**
-- [ ] Suggestions generated weekly
-- [ ] Suggestions are relevant and useful
-- [ ] Accept/reject flow works
-- [ ] Preferences learned over time
+- [ ] Optimizations applied automatically
+- [ ] Task success rate improves >5%
+- [ ] No user-facing prompts or notifications
+- [ ] Optimization history tracked
 - [ ] 8 new tests added
 
 **Time Estimate:** 6-7 days
 
 ---
 
-### Feature 5.2: Task Performance Analytics (Week 15)
-**Problem:** No insight into task efficiency or trends
+### Feature 5.2: Passive Performance Analytics (Week 15)
+**Problem:** No insight into task efficiency or trends when user wants to check
 
 **Implementation:**
 ```
-1. Collect execution metrics
+1. Collect execution metrics (silently in background)
    - Duration per task
    - Success/failure rate
    - Retry count
    - Tool usage
    - Resource consumption
+   - No notifications or alerts
 
 2. Store metrics
    - ~/.clodputer/metrics.db (SQLite)
    - Tables: executions, metrics, trends
    - Keep 90 days of data
 
-3. Add analytics command
+3. Add analytics command (user-initiated only)
    - `clodputer analytics` - show overview
    - `clodputer analytics <task>` - task-specific stats
    - `clodputer analytics --summary` - weekly digest
+   - User must explicitly request data
 
-4. Dashboard analytics tab
+4. Dashboard analytics tab (user-initiated only)
    - Press 'a' to view analytics
    - Show: success rate chart
    - Show: duration trends
    - Show: most/least reliable tasks
    - Show: resource usage over time
+   - No badges, notifications, or prompts
 
-5. Generate insights
+5. Generate passive insights (shown only when user views analytics)
+   Examples when user runs `clodputer analytics`:
    - "Task X is getting slower (5s → 15s)"
    - "Task Y has 80% success rate (below 95% target)"
    - "Task Z hasn't run in 7 days (scheduled daily)"
+
+   IMPORTANT: Insights are NEVER pushed to user
+   - No dashboard badges
+   - No menu bar notifications
+   - No automatic alerts
+   - Only shown when user explicitly checks
 ```
 
 **Files to Modify:**
 - `src/clodputer/metrics.py` - Enhance with analytics
 - `src/clodputer/cli.py` - Add analytics command
-- `src/clodputer/dashboard.py` - Add analytics tab
+- `src/clodputer/dashboard.py` - Add analytics tab (no auto-prompts)
 - `tests/test_metrics.py` - Test analytics
 
 **Success Criteria:**
-- [ ] Metrics collected automatically
+- [ ] Metrics collected silently
 - [ ] Analytics command useful
-- [ ] Dashboard charts clear
-- [ ] Insights actionable
+- [ ] Dashboard charts clear (when user views)
+- [ ] Insights actionable (when user requests)
+- [ ] No unsolicited notifications
 - [ ] 6 new tests added
 
 **Time Estimate:** 4-5 days
 
 ---
 
-### Feature 5.3: Self-Healing Tasks (Week 16)
-**Problem:** Tasks fail repeatedly without intervention
+### Feature 5.3: Silent Self-Healing (Week 16)
+**Problem:** Tasks fail repeatedly without automatic recovery
 
 **Implementation:**
 ```
-1. Detect failure patterns
+1. Detect failure patterns (silently in background)
    - Same error multiple times
    - Consistent failure at specific time
    - Resource-related failures (timeout, OOM)
    - Tool availability issues
+   - No user notifications during detection
 
-2. Auto-apply fixes
+2. Auto-apply fixes (completely automatic)
    - Timeout errors → increase timeout
-   - Parse errors → suggest prompt improvement
+   - Parse errors → adjust prompt formatting
    - MCP unavailable → skip task, retry later
    - Rate limit → add exponential backoff
+   - All fixes applied silently
 
-3. Healing actions
-   Auto-fix:
+3. Silent healing actions
+   Automatic fixes (no user interaction):
    - Increase timeout after 3 consecutive timeout failures
    - Add retry delay after rate limit errors
    - Skip execution after 5 consecutive MCP failures
+   - Adjust memory limits after OOM failures
+   - Rotate between alternative tools if available
+   - Update cron schedule to avoid conflict times
 
-   Suggest to user:
-   - "Task X times out often. Increase timeout?"
-   - "Task Y hits rate limits. Add delay between runs?"
-   - "Task Z uses deprecated tool. Update to new tool?"
+   NO user-facing suggestions:
+   - ❌ No prompts about fixes
+   - ❌ No questions about improvements
+   - ❌ No alerts or notifications
+   - ✅ Just fix it automatically
 
-4. Learning from fixes
+4. Learning from fixes (silent background process)
    - Track which fixes work
    - Apply successful patterns to similar tasks
    - Build knowledge base of solutions
+   - Roll back ineffective fixes automatically
 
-5. Report on healing
-   - Show: "🔧 Auto-fixed 3 tasks this week"
-   - List applied fixes
-   - Show success rate improvement
+5. Healing report (user-initiated only)
+   - `clodputer healing` command to view history
+   - Shows: fixes applied, success rate changes
+   - Available in analytics dashboard
+   - User must explicitly request to see
+   - No automatic reports or notifications
 ```
 
 **Files to Modify:**
-- `src/clodputer/healing.py` - New module
+- `src/clodputer/healing.py` - New module (silent healer)
 - `src/clodputer/executor.py` - Integrate healing
-- `src/clodputer/cli.py` - Add healing report
+- `src/clodputer/cli.py` - Add healing report command (user-initiated)
 - `tests/test_healing.py` - Test healing logic
 
 **Success Criteria:**
-- [ ] Failure patterns detected
-- [ ] Auto-fixes applied correctly
-- [ ] Suggestions presented to user
-- [ ] Success rate improves after fixes
+- [ ] Failure patterns detected automatically
+- [ ] Auto-fixes applied silently
+- [ ] No user-facing prompts or suggestions
+- [ ] Success rate improves >10% after fixes
+- [ ] Healing history viewable on demand
 - [ ] 7 new tests added
 
 **Time Estimate:** 5-6 days
@@ -978,23 +998,32 @@
 ### Phase 5 Deliverables
 
 **What Ships:**
-- Smart task suggestions
-- Performance analytics
-- Self-healing task system
+- Silent task optimization (automatic improvements)
+- Passive performance analytics (user-initiated only)
+- Silent self-healing system (automatic recovery)
+
+**Philosophy:**
+- Zero user-facing suggestions or notifications
+- All intelligence is passive or silent
+- User checks status when they want
+- System improves invisibly in background
 
 **Metrics to Track:**
-- Suggestion acceptance rate (target: >30%)
+- Task success rate improvement (target: >10%)
 - Tasks healed automatically (track count)
-- Average task success rate improvement
+- Optimization impact on performance
+- Zero unsolicited notifications (enforcement)
 
 **Documentation Updates:**
-- Smart features guide
-- Analytics interpretation guide
-- Self-healing explanation
+- Silent intelligence philosophy
+- Analytics viewing guide (how to check stats)
+- Healing report interpretation
+- Auto-optimization behavior explanation
 
 **Testing:**
 - +21 new tests
 - Coverage target: 87%
+- Manual testing: Verify zero unsolicited notifications
 - A/B test: Self-healing ON vs OFF
 
 ---
@@ -1094,10 +1123,10 @@
 - Enhanced menu bar
 - Visual polish
 
-### v0.6.0 (Week 16) - "Intelligence Release"
-- Smart suggestions
-- Performance analytics
-- Self-healing tasks
+### v0.6.0 (Week 16) - "Silent Intelligence Release"
+- Silent task optimization
+- Passive performance analytics
+- Silent self-healing
 
 ### v1.0.0 (Week 20) - "Production Release"
 - All Phase 1-5 features complete
