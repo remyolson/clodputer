@@ -197,11 +197,48 @@ def cli(ctx: click.Context, debug: bool) -> None:
     is_flag=True,
     help="Reset stored onboarding state before running the guided flow.",
 )
-def init(reset: bool) -> None:
-    """Run the guided onboarding workflow."""
+@click.option(
+    "--claude-cli",
+    help="Path to Claude CLI executable (skips auto-detection and interactive prompt).",
+)
+@click.option(
+    "--yes",
+    is_flag=True,
+    help="Skip all confirmation prompts (non-interactive mode).",
+)
+@click.option(
+    "--no-templates",
+    is_flag=True,
+    help="Skip template/task installation prompts.",
+)
+@click.option(
+    "--no-automation",
+    is_flag=True,
+    help="Skip automation setup (cron/watcher).",
+)
+def init(
+    reset: bool,
+    claude_cli: Optional[str],
+    yes: bool,
+    no_templates: bool,
+    no_automation: bool,
+) -> None:
+    """Run the guided onboarding workflow.
+
+    Non-interactive mode example:
+        clodputer init --claude-cli /path/to/claude --yes --no-templates --no-automation
+
+    This mode is useful for automated testing, CI/CD, and scripted installations.
+    """
 
     try:
-        run_onboarding(reset=reset)
+        run_onboarding(
+            reset=reset,
+            claude_cli_path=claude_cli,
+            non_interactive=yes,
+            skip_templates=no_templates,
+            skip_automation=no_automation,
+        )
     except click.ClickException:
         raise
     except Exception as exc:  # pragma: no cover - defensive guard

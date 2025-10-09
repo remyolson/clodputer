@@ -49,11 +49,11 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
-    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
+    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
 
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
@@ -125,11 +125,11 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
 
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
@@ -184,11 +184,11 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
-    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
+    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
         onboarding,
@@ -279,12 +279,12 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_detect_claude_md_candidates", lambda: [])
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
         onboarding,
@@ -297,7 +297,7 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
 
     recorded: dict[str, Path] = {}
 
-    def fake_apply(path: Path) -> None:
+    def fake_apply(path: Path, **_) -> None:
         recorded["path"] = path
 
     monkeypatch.setattr(onboarding, "_apply_claude_md_update", fake_apply)
@@ -351,14 +351,14 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(
         onboarding, "_detect_claude_md_candidates", lambda: [candidate_one, candidate_two]
     )
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
         onboarding,
@@ -371,7 +371,7 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
 
     recorded: dict[str, Path] = {}
 
-    def fake_apply(path: Path) -> None:
+    def fake_apply(path: Path, **_) -> None:
         recorded["path"] = path
 
     monkeypatch.setattr(onboarding, "_apply_claude_md_update", fake_apply)

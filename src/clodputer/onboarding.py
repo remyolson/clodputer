@@ -175,7 +175,13 @@ CLAUDE_MD_SECTION = textwrap.dedent(
 ).strip()
 
 
-def run_onboarding(reset: bool = False) -> None:
+def run_onboarding(
+    reset: bool = False,
+    claude_cli_path: Optional[str] = None,
+    non_interactive: bool = False,
+    skip_templates: bool = False,
+    skip_automation: bool = False,
+) -> None:
     """Execute the interactive onboarding sequence for Clodputer.
 
     Guides the user through:
@@ -192,10 +198,22 @@ def run_onboarding(reset: bool = False) -> None:
     Args:
         reset: If True, clears existing onboarding state before starting.
                Useful for reconfiguring from scratch.
+        claude_cli_path: Optional explicit path to Claude CLI. If provided,
+                        skips auto-detection and interactive prompt.
+        non_interactive: If True, skips all confirmation prompts. Useful for
+                        automated testing and CI/CD.
+        skip_templates: If True, skips template/task installation prompts.
+        skip_automation: If True, skips automation setup (cron/watcher).
 
     Example:
-        >>> run_onboarding()  # First-time setup
+        >>> run_onboarding()  # Interactive setup
         >>> run_onboarding(reset=True)  # Reconfigure from scratch
+        >>> run_onboarding(  # Non-interactive for CI/CD
+        ...     claude_cli_path="/path/to/claude",
+        ...     non_interactive=True,
+        ...     skip_templates=True,
+        ...     skip_automation=True
+        ... )
     """
     # Generate operation ID for correlating all onboarding logs
     operation_id = f"onboard-{uuid.uuid4().hex[:8]}"
@@ -235,28 +253,37 @@ def run_onboarding(reset: bool = False) -> None:
         _ensure_directories()
 
         print_step_header(2, 7, "Claude CLI Configuration")
-        selected_path = _choose_claude_cli()
+        selected_path = _choose_claude_cli(
+            explicit_path=claude_cli_path, non_interactive=non_interactive
+        )
         _verify_claude_cli(selected_path)
         store_claude_cli_path(selected_path)
         print_success(f"Stored Claude CLI path in {STATE_FILE}")
 
         print_step_header(3, 7, "Intelligent Task Generation")
-        # Try intelligent generation first, fall back to templates on failure
-        if not _offer_intelligent_task_generation():
-            print_info("Using template system instead")
-            _offer_template_install()
+        if not skip_templates:
+            # Try intelligent generation first, fall back to templates on failure
+            if not _offer_intelligent_task_generation(non_interactive=non_interactive):
+                print_info("Using template system instead")
+                _offer_template_install(non_interactive=non_interactive)
+        else:
+            print_dim("Skipping template/task installation (--no-templates)")
 
         print_step_header(4, 7, "CLAUDE.md Integration")
-        _offer_claude_md_update()
+        _offer_claude_md_update(non_interactive=non_interactive)
 
         print_step_header(5, 7, "Automation Setup")
-        configs = _offer_automation()
+        if not skip_automation:
+            configs = _offer_automation(non_interactive=non_interactive)
+        else:
+            print_dim("Skipping automation setup (--no-automation)")
+            configs, _ = _load_task_configs()
 
         print_step_header(6, 7, "Runtime Shortcuts")
-        _offer_runtime_shortcuts()
+        _offer_runtime_shortcuts(non_interactive=non_interactive)
 
         print_step_header(7, 7, "Smoke Test")
-        _offer_smoke_test(configs)
+        _offer_smoke_test(configs, non_interactive=non_interactive)
 
         print_completion_header()
         click.echo("\n  Next steps:")
@@ -382,23 +409,66 @@ def _validate_user_path(path: Path, allow_create: bool = True) -> Path:
         raise click.ClickException(f"Invalid path: {exc}") from exc
 
 
-def _choose_claude_cli() -> str:
+def _choose_claude_cli(
+    explicit_path: Optional[str] = None, non_interactive: bool = False
+) -> str:
+    """Choose or detect Claude CLI path.
+
+    Args:
+        explicit_path: If provided, validates and uses this path directly.
+        non_interactive: If True, uses auto-detection without prompts.
+
+    Returns:
+        Valid path to Claude CLI executable.
+
+    Raises:
+        click.ClickException: If path cannot be determined or is invalid.
+    """
     debug_logger.info("claude_cli_detection_started")
 
+    # Priority 1: Explicit path from command-line flag
+    if explicit_path:
+        debug_logger.info("claude_cli_explicit_path_provided", path=explicit_path)
+        path = os.path.expanduser(explicit_path.strip())
+        try:
+            if Path(path).exists():
+                debug_logger.info("claude_cli_explicit_path_valid", path=path)
+                print_success(f"Using Claude CLI at {path}")
+                return path
+            debug_logger.error("claude_cli_explicit_path_not_found", path=path)
+            raise click.ClickException(f"Claude CLI not found at {path}")
+        except (OSError, ValueError) as exc:
+            debug_logger.error("claude_cli_explicit_path_error", path=path, error=str(exc))
+            raise click.ClickException(f"Invalid Claude CLI path: {exc}") from exc
+
+    # Priority 2: Auto-detection (env var, stored path, which, common locations)
     candidate = claude_cli_path(os.getenv("CLODPUTER_CLAUDE_BIN"))
     if candidate:
         debug_logger.info("claude_cli_candidate_found", path=candidate)
         try:
-            if Path(candidate).exists() and click.confirm(
-                f"  Use Claude CLI at {candidate}?", default=True
-            ):
-                debug_logger.info("claude_cli_candidate_accepted", path=candidate)
-                return candidate
+            if Path(candidate).exists():
+                # In non-interactive mode, use auto-detected path without confirmation
+                if non_interactive:
+                    debug_logger.info("claude_cli_candidate_auto_accepted", path=candidate)
+                    print_success(f"Auto-detected Claude CLI at {candidate}")
+                    return candidate
+                # In interactive mode, confirm with user
+                if click.confirm(f"  Use Claude CLI at {candidate}?", default=True):
+                    debug_logger.info("claude_cli_candidate_accepted", path=candidate)
+                    return candidate
         except (OSError, ValueError) as exc:
             debug_logger.warning("claude_cli_candidate_error", path=candidate, error=str(exc))
             print_warning(f"Cannot access {candidate}: {exc}")
             candidate = None
 
+    # Priority 3: Non-interactive mode without detection fails
+    if non_interactive:
+        debug_logger.error("claude_cli_not_found_non_interactive")
+        raise click.ClickException(
+            "Claude CLI not found. Provide path via --claude-cli or CLODPUTER_CLAUDE_BIN"
+        )
+
+    # Priority 4: Interactive prompt (only in interactive mode)
     while True:
         if candidate:
             path_text = click.prompt("  Enter path to Claude CLI executable", default=candidate)
@@ -422,10 +492,20 @@ def _choose_claude_cli() -> str:
         candidate = None
 
 
-def _offer_template_install() -> None:
+def _offer_template_install(non_interactive: bool = False) -> None:
+    """Offer to install a starter template.
+
+    Args:
+        non_interactive: If True, skips template installation entirely.
+    """
     templates = available_templates()
     if not templates:
         print_warning("No built-in templates found. Skipping.")
+        return
+
+    # In non-interactive mode, skip template installation
+    if non_interactive:
+        print_dim("Skipped template import (non-interactive mode).")
         return
 
     if not click.confirm("  Copy a starter template into ~/.clodputer/tasks now?", default=True):
@@ -454,7 +534,12 @@ def _offer_template_install() -> None:
     print_success(f"Copied template to {written}")
 
 
-def _offer_claude_md_update() -> None:
+def _offer_claude_md_update(non_interactive: bool = False) -> None:
+    """Offer to update CLAUDE.md with Clodputer instructions.
+
+    Args:
+        non_interactive: If True, skips CLAUDE.md update prompts.
+    """
     debug_logger.info("claude_md_update_started")
 
     candidates = _detect_claude_md_candidates()
@@ -468,17 +553,28 @@ def _offer_claude_md_update() -> None:
     if candidates:
         if len(candidates) == 1:
             claude_md_path = candidates[0]
-            if not click.confirm(
+            # In non-interactive mode, auto-update if single candidate found
+            if non_interactive:
+                print_info(f"Auto-updating CLAUDE.md at {claude_md_path}")
+            elif not click.confirm(
                 f"  Update CLAUDE.md at {claude_md_path} with Clodputer instructions?",
                 default=True,
             ):
                 print_dim("Skipped CLAUDE.md update.")
                 return
         else:
+            # Multiple candidates - skip in non-interactive mode
+            if non_interactive:
+                print_dim("Multiple CLAUDE.md files found, skipping in non-interactive mode.")
+                return
             print_info("Found multiple CLAUDE.md candidates:")
             index = _select_from_list(candidates, "Select the file to update")
             claude_md_path = candidates[index]
     else:
+        # No candidates - skip in non-interactive mode
+        if non_interactive:
+            print_dim("No CLAUDE.md found, skipping in non-interactive mode.")
+            return
         print_warning("CLAUDE.md not found in default locations.")
         if not click.confirm("  Provide a path to create or update CLAUDE.md now?", default=False):
             print_dim("Skipped CLAUDE.md integration.")
@@ -503,7 +599,7 @@ def _offer_claude_md_update() -> None:
         return
 
     debug_logger.info("claude_md_applying_update", path=str(claude_md_path))
-    _apply_claude_md_update(claude_md_path)
+    _apply_claude_md_update(claude_md_path, non_interactive=non_interactive)
     debug_logger.info("claude_md_update_completed", path=str(claude_md_path))
 
 
@@ -516,7 +612,18 @@ def _load_task_configs() -> tuple[List[TaskConfig], List[tuple[Path, str]]]:
     return configs, errors
 
 
-def _offer_automation(configs: Optional[List[TaskConfig]] = None) -> List[TaskConfig]:
+def _offer_automation(
+    configs: Optional[List[TaskConfig]] = None, non_interactive: bool = False
+) -> List[TaskConfig]:
+    """Offer automation setup (cron and file watcher).
+
+    Args:
+        configs: Optional pre-loaded task configs.
+        non_interactive: If True, skips automation setup prompts.
+
+    Returns:
+        List of loaded task configs.
+    """
     task_errors: List[tuple[Path, str]] = []
     if configs is None:
         configs, task_errors = _load_task_configs()
@@ -531,12 +638,18 @@ def _offer_automation(configs: Optional[List[TaskConfig]] = None) -> List[TaskCo
         print_info("No tasks detected yet. Add YAML files to ~/.clodputer/tasks/.")
         return configs
 
-    _offer_cron_setup(configs)
-    _offer_watcher_setup(configs)
+    _offer_cron_setup(configs, non_interactive=non_interactive)
+    _offer_watcher_setup(configs, non_interactive=non_interactive)
     return configs
 
 
-def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
+def _offer_cron_setup(configs: Sequence[TaskConfig], non_interactive: bool = False) -> None:
+    """Offer cron scheduling setup.
+
+    Args:
+        configs: Task configurations.
+        non_interactive: If True, skips cron installation prompts.
+    """
     debug_logger.info("cron_setup_started", config_count=len(configs))
 
     print_info("Cron scheduling")
@@ -574,6 +687,11 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
             for dt_obj in upcoming:
                 click.echo(f"      - {dt_obj.isoformat()}")
 
+    # In non-interactive mode, skip cron installation
+    if non_interactive:
+        print_dim("Skipping cron installation (non-interactive mode).")
+        return
+
     if not click.confirm("\n  Install these cron jobs now?", default=False):
         debug_logger.info("cron_installation_skipped", reason="user declined")
         print_dim("Skipped cron installation.")
@@ -603,7 +721,13 @@ def _offer_cron_setup(configs: Sequence[TaskConfig]) -> None:
     click.echo(f"    Cron log: {CRON_LOG_FILE}")
 
 
-def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
+def _offer_watcher_setup(configs: Sequence[TaskConfig], non_interactive: bool = False) -> None:
+    """Offer file watcher setup.
+
+    Args:
+        configs: Task configurations.
+        non_interactive: If True, skips watcher daemon prompts.
+    """
     print_info("File watcher")
     tasks = file_watch_tasks(configs)
     if not tasks:
@@ -618,7 +742,10 @@ def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
             f"  • {task.name}: path={watch_path} pattern={trigger.pattern} event={trigger.event}"
         )
         if not watch_path.exists():
-            if click.confirm(f"    Create missing directory {watch_path}?", default=True):
+            # In non-interactive mode, skip directory creation prompt
+            if non_interactive:
+                print_warning(f"Watch path does not exist: {watch_path}")
+            elif click.confirm(f"    Create missing directory {watch_path}?", default=True):
                 try:
                     watch_path.mkdir(parents=True, exist_ok=True)
                 except OSError as exc:
@@ -636,6 +763,11 @@ def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
         )
         return
 
+    # In non-interactive mode, skip watcher daemon start
+    if non_interactive:
+        print_dim("Skipping watcher daemon start (non-interactive mode).")
+        return
+
     if not click.confirm("\n  Start the watcher daemon now?", default=False):
         print_dim("Skipped watcher daemon start.")
         return
@@ -651,8 +783,18 @@ def _offer_watcher_setup(configs: Sequence[TaskConfig]) -> None:
     print_success(f"Watcher daemon started (PID {pid}). Log: {WATCHER_LOG_FILE}")
 
 
-def _offer_runtime_shortcuts() -> None:
+def _offer_runtime_shortcuts(non_interactive: bool = False) -> None:
+    """Offer runtime shortcuts (menu bar, dashboard).
+
+    Args:
+        non_interactive: If True, skips runtime shortcut prompts.
+    """
     print_info("Dashboard shows live queue + logs (opens in Terminal).")
+
+    # In non-interactive mode, skip runtime shortcuts
+    if non_interactive:
+        print_dim("Skipping runtime shortcuts (non-interactive mode).")
+        return
 
     if sys.platform == "darwin":
         print_info("Menu bar adds status + quick actions (requires accessibility permission).")
@@ -699,7 +841,15 @@ def _launch_dashboard_terminal() -> None:
         print_success("Dashboard opened in a new Terminal window.")
 
 
-def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
+def _offer_smoke_test(
+    configs: Optional[Sequence[TaskConfig]] = None, non_interactive: bool = False
+) -> None:
+    """Offer smoke test execution.
+
+    Args:
+        configs: Optional pre-loaded task configs.
+        non_interactive: If True, skips smoke test prompts.
+    """
     debug_logger.info("smoke_test_started")
 
     task_errors: List[tuple[Path, str]] = []
@@ -721,6 +871,11 @@ def _offer_smoke_test(configs: Optional[Sequence[TaskConfig]] = None) -> None:
     # Check network connectivity before offering smoke test
     network_ok = _check_network_connectivity()
     debug_logger.info("smoke_test_network_check", connected=network_ok)
+
+    # In non-interactive mode, skip smoke test
+    if non_interactive:
+        print_dim("Skipping smoke test (non-interactive mode).")
+        return
 
     if not network_ok:
         print_warning("Network connectivity issue detected.")
@@ -950,7 +1105,13 @@ def _detect_claude_md_candidates() -> list[Path]:
     return [path for path in locations if path.exists()]
 
 
-def _apply_claude_md_update(path: Path) -> None:
+def _apply_claude_md_update(path: Path, non_interactive: bool = False) -> None:
+    """Apply Clodputer section to CLAUDE.md.
+
+    Args:
+        path: Path to CLAUDE.md file.
+        non_interactive: If True, skips confirmation prompts.
+    """
     # Check file size before loading
     try:
         file_size = path.stat().st_size
@@ -961,7 +1122,10 @@ def _apply_claude_md_update(path: Path) -> None:
     if file_size > CLAUDE_MD_SIZE_SKIP_DIFF_MB * MEGABYTE:
         print_warning(f"CLAUDE.md is very large ({file_size // MEGABYTE}MB).")
         click.echo("     Skipping diff preview to avoid memory issues.")
-        if not click.confirm("  Add Clodputer guidance without preview?", default=False):
+        if non_interactive:
+            # In non-interactive mode, apply without preview
+            print_info("Applying update without preview (non-interactive mode).")
+        elif not click.confirm("  Add Clodputer guidance without preview?", default=False):
             print_dim("Skipped CLAUDE.md update.")
             return
         skip_diff = True
@@ -1006,17 +1170,19 @@ def _apply_claude_md_update(path: Path) -> None:
             print_info("No changes required for CLAUDE.md.")
             return
 
-        click.echo("\n  Proposed CLAUDE.md update:")
-        diff_lines = diff.splitlines()
-        preview_limit = 80
-        for line in diff_lines[:preview_limit]:
-            click.echo(f"    {line}")
-        if len(diff_lines) > preview_limit:
-            click.echo("    ... (diff truncated)")
+        if not non_interactive:
+            click.echo("\n  Proposed CLAUDE.md update:")
+            diff_lines = diff.splitlines()
+            preview_limit = 80
+            for line in diff_lines[:preview_limit]:
+                click.echo(f"    {line}")
+            if len(diff_lines) > preview_limit:
+                click.echo("    ... (diff truncated)")
 
-        if not click.confirm("\n  Apply this update?", default=True):
-            print_dim("Skipped CLAUDE.md update.")
-            return
+            if not click.confirm("\n  Apply this update?", default=True):
+                print_dim("Skipped CLAUDE.md update.")
+                return
+        # In non-interactive mode, skip diff display and apply directly
     # If diff is None, we already confirmed above for large files
 
     backup_path = path.with_name(f"{path.name}{BACKUP_TIMESTAMP_SUFFIX}{int(time.time())}")
@@ -1557,8 +1723,11 @@ def _parse_mcp_list_output(output: str) -> list[dict]:
     return mcps
 
 
-def _offer_intelligent_task_generation() -> bool:
+def _offer_intelligent_task_generation(non_interactive: bool = False) -> bool:
     """Offer AI-generated task suggestions based on user's MCP setup.
+
+    Args:
+        non_interactive: If True, skips intelligent task generation prompts.
 
     Returns:
         True if tasks were generated and installed successfully.
@@ -1585,6 +1754,11 @@ def _offer_intelligent_task_generation() -> bool:
         )
     else:
         click.echo("    No MCPs detected")
+
+    # In non-interactive mode, skip generation prompts
+    if non_interactive:
+        print_dim("Skipping intelligent generation (non-interactive mode).")
+        return False
 
     # Optionally skip generation if user says no
     if not click.confirm(

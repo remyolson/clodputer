@@ -86,12 +86,12 @@ def test_cli_init_creates_state(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
-    monkeypatch.setattr(onboarding, "_offer_template_install", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
+    monkeypatch.setattr(onboarding, "_offer_template_install", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(
         onboarding,
@@ -144,12 +144,12 @@ def test_cli_init_manual_path(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
-    monkeypatch.setattr(onboarding, "_offer_template_install", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
+    monkeypatch.setattr(onboarding, "_offer_template_install", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
 
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: None)
     monkeypatch.setattr(
@@ -208,12 +208,12 @@ def test_cli_init_reset_clears_state(monkeypatch, tmp_path):
     monkeypatch.setattr(
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
-    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
-    monkeypatch.setattr(onboarding, "_offer_template_install", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
-    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
-    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_: None)
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda **_: False)
+    monkeypatch.setattr(onboarding, "_offer_template_install", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_automation", lambda *_, **__: [])
+    monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda **_: None)
+    monkeypatch.setattr(onboarding, "_offer_smoke_test", lambda *_, **__: None)
 
     monkeypatch.setattr(onboarding, "claude_cli_path", lambda *_: str(claude_path))
     monkeypatch.setattr(

@@ -84,25 +84,9 @@ open docs/implementation/PROGRESS.md
 
 ## Installation
 
-### pipx (Recommended)
+> **Note**: Clodputer is currently in developer preview and not yet published to PyPI. Install from source for now.
 
-```bash
-# Install pipx if you don't have it
-brew install pipx
-pipx ensurepath
-
-# Install clodputer from PyPI
-pipx install clodputer
-
-# Verify installation
-clodputer --version
-```
-
-**Why pipx?** It automatically handles virtualenv isolation and is designed specifically for Python CLI tools. Works on macOS, Linux, and Windows.
-
-**Upgrading**: `pipx upgrade clodputer`
-
-### From Source (For Development)
+### From Source (Current Method)
 
 ```bash
 git clone https://github.com/remyolson/clodputer.git
@@ -110,7 +94,35 @@ cd clodputer
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+
+# Run guided setup
+clodputer init
 ```
+
+### Platform Notes
+
+**macOS**: System Python is externally managed ([PEP 668](https://peps.python.org/pep-0668/)). Always use a virtual environment (venv) or pipx. Do not use `--break-system-packages` as it can damage your Python installation.
+
+**Linux**: Many distributions also have externally managed Python. Use venv or pipx.
+
+### Future Installation (When Published to PyPI)
+
+Once Clodputer is published to PyPI, the recommended installation method will be pipx:
+
+```bash
+# Install pipx if you don't have it
+brew install pipx        # macOS
+# or: apt install pipx   # Debian/Ubuntu
+pipx ensurepath
+
+# Install clodputer from PyPI (not yet available)
+pipx install clodputer
+
+# Verify installation
+clodputer --version
+```
+
+**Why pipx?** It automatically handles virtualenv isolation and is designed specifically for Python CLI tools. Works on macOS, Linux, and Windows.
 
 See the [installation guide](docs/user/installation.md) for full details. After installation, run `clodputer init` for guided first-time setup.
 
