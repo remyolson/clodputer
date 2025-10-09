@@ -190,49 +190,49 @@ Add intelligent, personalized task generation to the onboarding flow. Instead of
 ### Phase 6: Error Handling and Edge Cases
 **Goal**: Handle all failure modes gracefully
 
-- [ ] Handle MCP detection failures
-  - [ ] Command not found → show message, use templates
-  - [ ] Permission denied → show message, use templates
-  - [ ] Parse error → log warning, use templates
+- [x] Handle MCP detection failures
+  - [x] Command not found → show message, use templates
+  - [x] Permission denied → show message, use templates
+  - [x] Parse error → log warning, use templates
 
-- [ ] Handle task generation failures
-  - [ ] Claude CLI timeout → show message, use templates
-  - [ ] Invalid JSON response → show error, use templates
-  - [ ] Validation failures → show message, use templates
-  - [ ] Network issues → show message, use templates
+- [x] Handle task generation failures
+  - [x] Claude CLI timeout → show message, use templates
+  - [x] Invalid JSON response → show error, use templates
+  - [x] Validation failures → show message, use templates
+  - [x] Network issues → show message, use templates
 
-- [ ] Handle user interaction edge cases
-  - [ ] Invalid selection input → re-prompt
-  - [ ] All tasks rejected → ask if they want templates
-  - [ ] File write errors → show error, continue
-  - [ ] Keyboard interrupt → clean exit
+- [x] Handle user interaction edge cases
+  - [x] Invalid selection input → re-prompt
+  - [x] All tasks rejected → ask if they want templates
+  - [x] File write errors → show error, continue
+  - [x] Keyboard interrupt → clean exit
 
-- [ ] Add comprehensive logging
-  - [ ] Log MCP detection results
-  - [ ] Log generation attempts and responses
-  - [ ] Log validation failures with details
-  - [ ] Log fallback triggers
+- [x] Add comprehensive logging
+  - [x] Log MCP detection results
+  - [x] Log generation attempts and responses
+  - [x] Log validation failures with details
+  - [x] Log fallback triggers
 
-- [ ] Write edge case tests
-  - [ ] Test all error paths
-  - [ ] Test fallback scenarios
-  - [ ] Test partial success cases
-  - [ ] Test user cancellation
+- [x] Write edge case tests
+  - [x] Test all error paths
+  - [x] Test fallback scenarios
+  - [x] Test partial success cases
+  - [x] Test user cancellation
 
 ### Phase 7: Testing and Quality Assurance
 **Goal**: Ensure feature is robust and reliable
 
-- [ ] Write integration tests
-  - [ ] End-to-end onboarding with intelligent generation
-  - [ ] Test with various MCP configurations
-  - [ ] Test fallback to templates
-  - [ ] Test smoke test using generated task
+- [x] Write integration tests
+  - [x] End-to-end onboarding with intelligent generation
+  - [x] Test with various MCP configurations
+  - [x] Test fallback to templates
+  - [x] Test smoke test using generated task
 
-- [ ] Add unit tests
-  - [ ] Test each helper function individually
-  - [ ] Test prompt construction
-  - [ ] Test response parsing
-  - [ ] Test validation logic
+- [x] Add unit tests
+  - [x] Test each helper function individually
+  - [x] Test prompt construction
+  - [x] Test response parsing
+  - [x] Test validation logic
 
 - [ ] Manual testing scenarios
   - [ ] Test with email MCP only
@@ -241,17 +241,17 @@ Add intelligent, personalized task generation to the onboarding flow. Instead of
   - [ ] Test with no MCPs
   - [ ] Test with Claude CLI errors
 
-- [ ] Performance testing
-  - [ ] Measure generation time
-  - [ ] Ensure reasonable timeout (< 60s)
-  - [ ] Verify no memory leaks
-  - [ ] Check subprocess cleanup
+- [x] Performance testing
+  - [x] Measure generation time
+  - [x] Ensure reasonable timeout (< 60s)
+  - [x] Verify no memory leaks
+  - [x] Check subprocess cleanup
 
-- [ ] Security review
-  - [ ] Verify no code injection vulnerabilities
-  - [ ] Check file path sanitization
-  - [ ] Review allowed_tools restrictions
-  - [ ] Audit destructive command detection
+- [x] Security review
+  - [x] Verify no code injection vulnerabilities
+  - [x] Check file path sanitization
+  - [x] Review allowed_tools restrictions
+  - [x] Audit destructive command detection
 
 ### Phase 8: Documentation and Polish
 **Goal**: Document the feature and improve UX
