@@ -31,7 +31,7 @@ _No critical issues identified yet._
 ### Issue #1: No Non-Interactive Onboarding Mode
 
 **Priority**: 🟠 High
-**Status**: 🟢 Fixed
+**Status**: ✅ Verified
 **Found In**: Test Run #001 - 2025-10-09
 **Affects**: Onboarding, Testing, CI/CD
 
@@ -88,7 +88,12 @@ clodputer init --config onboarding.yaml
   - Updated all onboarding helper functions to accept `non_interactive` parameter
   - Functions gracefully handle non-interactive mode with appropriate defaults
   - All 164 tests pass (backward compatible implementation)
-- **Verification**: Pending Test Run #002
+- **Verified By**: Test Run #002 - 2025-10-09
+- **Verification Results**: ✅ All non-interactive modes working perfectly
+  - Explicit path: PASS (no prompts, completed successfully)
+  - Environment variable: PASS (auto-detected from CLODPUTER_CLAUDE_BIN)
+  - Pure auto-detection: PASS (found Claude via `which`)
+  - All flags working: --yes, --no-templates, --no-automation
 - **Usage Examples**:
   ```bash
   # Full non-interactive mode
@@ -96,6 +101,9 @@ clodputer init --config onboarding.yaml
 
   # With environment variable
   export CLODPUTER_CLAUDE_BIN=/path/to/claude
+  clodputer init --yes
+
+  # Pure auto-detection
   clodputer init --yes
   ```
 
@@ -106,7 +114,7 @@ clodputer init --config onboarding.yaml
 ### Issue #2: Incorrect Default Claude CLI Path
 
 **Priority**: 🟡 Medium
-**Status**: 🟢 Fixed
+**Status**: ✅ Verified
 **Found In**: Test Run #001 - 2025-10-09
 **Affects**: Onboarding (Step 2/7 - Claude CLI Configuration)
 
@@ -173,7 +181,12 @@ The onboarding process offers `/usr/bin/claude` as the default Claude CLI path, 
     5. Common installation paths (`~/.claude/local/claude`, `/opt/homebrew/bin/claude`)
   - Interactive mode now prompts with detected path as default
   - Non-interactive mode uses auto-detection without prompts
-- **Verification**: Pending Test Run #002
+- **Verified By**: Test Run #002 - 2025-10-09
+- **Verification Results**: ✅ Auto-detection working perfectly
+  - Successfully detected: `/Users/ro/.claude/local/claude`
+  - Message displayed: "Auto-detected Claude CLI at /Users/ro/.claude/local/claude"
+  - Detection worked via `which claude` command
+  - No manual path entry required
 - **Auto-Detection Order**: Explicit → Env Var → Stored → `which` → Common Paths
 
 ---
@@ -181,7 +194,7 @@ The onboarding process offers `/usr/bin/claude` as the default Claude CLI path, 
 ### Issue #3: Installation Method Unclear for macOS Users
 
 **Priority**: 🟡 Medium
-**Status**: 🟢 Fixed
+**Status**: ✅ Verified
 **Found In**: Test Run #001 - 2025-10-09
 **Affects**: Installation, Documentation
 
@@ -253,7 +266,12 @@ pip install -e ".[dev]"
   - Clear distinction between:
     - Current: Source installation with venv (developer preview)
     - Future: pipx installation (when published to PyPI)
-- **Verification**: Documentation review completed
+- **Verified By**: Test Run #002 - 2025-10-09
+- **Verification Results**: ✅ Documentation is clear and helpful
+  - README Installation section reorganized with "From Source (Current Method)" prominent
+  - Platform Notes section clearly explains PEP 668 issue
+  - Warning against `--break-system-packages` included
+  - Users have clear path: clone → venv → pip install -e .
 - **User Impact**: Clear installation path reduces confusion and prevents system Python damage
 
 ---
@@ -349,6 +367,8 @@ _No archived issues yet._
 - **Medium Open**: 0
 - **Low Open**: 0
 - **In Progress**: 0
-- **Fixed (Pending Verification)**: 3 (Issues #1, #2, #3)
-- **Verified**: 0
-- **Test Runs Completed**: 1 (Test Run #001 - Completed)
+- **Fixed (Pending Verification)**: 0
+- **Verified**: 3 (Issues #1, #2, #3)
+- **Test Runs Completed**: 2
+  - Test Run #001 - Fresh Install (2025-10-09): 3 issues found
+  - Test Run #002 - Onboarding Improvements (2025-10-09): 0 new issues, 3 verified fixed
