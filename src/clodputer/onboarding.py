@@ -1069,6 +1069,7 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         # Get Claude CLI path
         cli_path = claude_cli_path(None)
         if not cli_path:
+            click.echo("    [debug] Claude CLI path not found", err=True)
             return None
 
         # Build the prompt
@@ -1085,35 +1086,54 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         )
 
         if result.returncode != 0:
+            click.echo(f"    [debug] Claude CLI returned code {result.returncode}", err=True)
+            if result.stderr:
+                click.echo(f"    [debug] stderr: {result.stderr[:200]}", err=True)
             return None
 
         # Parse JSON response
         try:
             response = json_module.loads(result.stdout)
-        except json_module.JSONDecodeError:
+        except json_module.JSONDecodeError as exc:
+            click.echo(f"    [debug] JSON parse error: {exc}", err=True)
+            click.echo(f"    [debug] stdout: {result.stdout[:200]}", err=True)
             return None
 
         # Validate response structure
         if not isinstance(response, dict) or "tasks" not in response:
+            click.echo(f"    [debug] Invalid response structure", err=True)
             return None
 
         tasks = response["tasks"]
-        if not isinstance(tasks, list) or len(tasks) != 3:
+        if not isinstance(tasks, list):
+            click.echo(f"    [debug] 'tasks' is not a list", err=True)
+            return None
+
+        # Accept 1-3 tasks (not strict on 3)
+        if len(tasks) == 0 or len(tasks) > 3:
+            click.echo(f"    [debug] Got {len(tasks)} tasks, expected 1-3", err=True)
             return None
 
         # Validate each task
         validated_tasks = []
-        for task in tasks:
+        for idx, task in enumerate(tasks):
             if _validate_generated_task(task):
                 validated_tasks.append(task)
+            else:
+                click.echo(f"    [debug] Task {idx + 1} failed validation", err=True)
 
         # Need at least 1 valid task
         if not validated_tasks:
+            click.echo(f"    [debug] No tasks passed validation", err=True)
             return None
 
         return validated_tasks
 
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except subprocess.TimeoutExpired:
+        click.echo(f"    [debug] Generation timed out after {TASK_GENERATION_TIMEOUT_SECONDS}s", err=True)
+        return None
+    except (FileNotFoundError, OSError) as exc:
+        click.echo(f"    [debug] Subprocess error: {exc}", err=True)
         return None
 
 
@@ -1268,6 +1288,11 @@ def _offer_intelligent_task_generation() -> bool:
         True if tasks were generated and installed successfully.
         False if generation failed (caller should fall back to templates).
     """
+    # Check if user wants to skip intelligent generation
+    if os.environ.get("CLODPUTER_SKIP_INTELLIGENT_GENERATION"):
+        click.echo("    Skipping intelligent generation (CLODPUTER_SKIP_INTELLIGENT_GENERATION set)")
+        return False
+
     print_info("Analyzing your Claude Code setup...")
 
     # Detect MCPs
@@ -1279,6 +1304,11 @@ def _offer_intelligent_task_generation() -> bool:
     else:
         click.echo("    No MCPs detected")
 
+    # Optionally skip generation if user says no
+    if not click.confirm("\n  Generate AI-powered task suggestions based on your setup?", default=True):
+        print_dim("Skipped intelligent generation")
+        return False
+
     # Generate task suggestions
     print_info("Generating personalized task suggestions...")
     click.echo("    This may take 30-60 seconds...")
@@ -1287,14 +1317,18 @@ def _offer_intelligent_task_generation() -> bool:
 
     if not tasks:
         print_warning("Could not generate task suggestions")
+        click.echo("    Possible reasons:")
+        click.echo("      • Claude CLI may not support --headless mode")
+        click.echo("      • Network connectivity issues")
+        click.echo("      • Task validation failed for safety")
         click.echo("    Will use template system instead")
         return False
 
     # Present tasks to user
-    click.echo(f"\n  📋 Generated {len(tasks)} task suggestions for you:\n")
+    click.echo(f"\n  📋 Generated {len(tasks)} task suggestion(s) for you:\n")
 
     for idx, task in enumerate(tasks, 1):
-        click.echo(f"  {idx}. [bold]{task['name']}[/bold]")
+        click.echo(f"  {idx}. {task['name']}")
         click.echo(f"     {task['description']}")
         click.echo()
 
@@ -1304,11 +1338,15 @@ def _offer_intelligent_task_generation() -> bool:
     else:
         default_selection = "all"
 
-    selection = click.prompt(
-        "  Select tasks to install (e.g., '1,3' or 'all')",
-        default=default_selection,
-        type=str,
-    ).strip()
+    try:
+        selection = click.prompt(
+            "  Select tasks to install (e.g., '1,3' or 'all', or 'none' to skip)",
+            default=default_selection,
+            type=str,
+        ).strip()
+    except (KeyboardInterrupt, EOFError):
+        print_dim("\nCancelled task selection")
+        return False
 
     # Parse selection
     if selection.lower() == "all":
@@ -1321,13 +1359,17 @@ def _offer_intelligent_task_generation() -> bool:
             # Parse comma-separated numbers
             selected_indices = []
             for part in selection.split(","):
-                idx = int(part.strip()) - 1  # Convert to 0-based
+                part = part.strip()
+                if not part:
+                    continue
+                idx = int(part) - 1  # Convert to 0-based
                 if 0 <= idx < len(tasks):
                     selected_indices.append(idx)
                 else:
-                    print_warning(f"Invalid selection: {part.strip()}")
-        except ValueError:
-            print_error("Invalid selection format")
+                    print_warning(f"Invalid selection: {part} (out of range)")
+        except ValueError as exc:
+            print_error(f"Invalid selection format: {exc}")
+            print_dim("Expected format: '1,3' or 'all' or 'none'")
             return False
 
     if not selected_indices:
@@ -1345,8 +1387,12 @@ def _offer_intelligent_task_generation() -> bool:
 
         # Check for conflicts
         if filepath.exists():
-            if not click.confirm(f"  {filename} exists. Overwrite?", default=False):
-                print_dim(f"Skipped {filename}")
+            try:
+                if not click.confirm(f"  {filename} exists. Overwrite?", default=False):
+                    print_dim(f"Skipped {filename}")
+                    continue
+            except (KeyboardInterrupt, EOFError):
+                print_dim(f"\nSkipped {filename}")
                 continue
 
         # Write task file
