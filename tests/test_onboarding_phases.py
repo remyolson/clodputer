@@ -48,6 +48,7 @@ def test_onboarding_template_copy_flow(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
     monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
@@ -122,6 +123,7 @@ def test_onboarding_updates_claude_md(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
     monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
@@ -179,6 +181,7 @@ def test_onboarding_template_skip_when_declined(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
     monkeypatch.setattr(onboarding, "_offer_claude_md_update", lambda: None)
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
     monkeypatch.setattr(onboarding, "_offer_runtime_shortcuts", lambda: None)
@@ -272,6 +275,7 @@ def test_onboarding_manual_claude_md_path(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(onboarding, "_detect_claude_md_candidates", lambda: [])
     monkeypatch.setattr(onboarding, "_offer_automation", lambda *_: [])
@@ -342,6 +346,7 @@ def test_onboarding_selects_claude_md_from_candidates(monkeypatch, tmp_path):
         onboarding, "ensure_tasks_dir", lambda: tasks_dir.mkdir(parents=True, exist_ok=True)
     )
 
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
     monkeypatch.setattr(onboarding, "available_templates", lambda: [])
     monkeypatch.setattr(
         onboarding, "_detect_claude_md_candidates", lambda: [candidate_one, candidate_two]

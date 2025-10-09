@@ -190,6 +190,24 @@ def stub_onboarding_phases(monkeypatch):
 
 
 @pytest.fixture
+def stub_intelligent_generation(monkeypatch):
+    """Stub out intelligent task generation for onboarding tests.
+
+    Monkeypatches _offer_intelligent_task_generation() to return False,
+    which makes onboarding skip AI generation and fall back to templates.
+    This prevents the new confirmation prompt from interfering with tests.
+
+    Example:
+        >>> def test_something(stub_intelligent_generation):
+        ...     # Intelligent generation will be skipped
+        ...     run_onboarding()  # Uses templates, no AI generation prompt
+    """
+    from clodputer import onboarding
+
+    monkeypatch.setattr(onboarding, "_offer_intelligent_task_generation", lambda: False)
+
+
+@pytest.fixture
 def mock_click_confirm():
     """Factory fixture for mocking click.confirm() with preset responses.
 
