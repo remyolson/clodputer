@@ -223,7 +223,11 @@ class TestTaskState:
         _backup_corrupted_state()
 
         # No backup should be created
-        backups = list(isolated_task_state.parent.glob("*.corrupted")) if isolated_task_state.parent.exists() else []
+        backups = (
+            list(isolated_task_state.parent.glob("*.corrupted"))
+            if isolated_task_state.parent.exists()
+            else []
+        )
         assert len(backups) == 0
 
 
