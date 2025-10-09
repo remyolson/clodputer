@@ -243,7 +243,9 @@ class TaskManager:
         except subprocess.CalledProcessError as exc:
             console.print(f"[red]✗[/red] Editor exited with error: {exc}")
         except FileNotFoundError:
-            console.print(f"[red]✗[/red] Editor '{editor}' not found. Set $EDITOR environment variable.")
+            console.print(
+                f"[red]✗[/red] Editor '{editor}' not found. Set $EDITOR environment variable."
+            )
 
         console.print("\n[dim]Press any key to continue...[/dim]")
         click.getchar()

@@ -320,7 +320,7 @@ def _validate_user_path(path: Path, allow_create: bool = True) -> Path:
             resolved.relative_to(home)
         except ValueError:
             raise click.ClickException(
-                f"Path must be within your home directory ({home}). " f"Provided path: {resolved}"
+                f"Path must be within your home directory ({home}). Provided path: {resolved}"
             )
 
         # Check if path must exist
@@ -695,13 +695,13 @@ def _render_smoke_test_result(result: ExecutionResult) -> None:
             if "result" in output:
                 result_text = output["result"]
                 # Try to show a brief summary
-                lines = str(result_text).split('\n')[:3]  # First 3 lines
-                summary = '\n    '.join(lines)
+                lines = str(result_text).split("\n")[:3]  # First 3 lines
+                summary = "\n    ".join(lines)
                 click.echo(f"    Result preview: {summary}...")
             if "num_turns" in output:
                 click.echo(f"    Turns: {output['num_turns']}")
             if "total_cost_usd" in output:
-                cost = output['total_cost_usd']
+                cost = output["total_cost_usd"]
                 click.echo(f"    Cost: ${cost:.4f}")
         else:
             # Fallback for non-dict output
@@ -710,7 +710,9 @@ def _render_smoke_test_result(result: ExecutionResult) -> None:
                 click.echo(f"    Output: {output_str[:200]}...")
             else:
                 click.echo(f"    Output: {output_str}")
-        click.echo(f"    💡 View full output with: clodputer logs --task {getattr(result, 'task_name', '')}")
+        click.echo(
+            f"    💡 View full output with: clodputer logs --task {getattr(result, 'task_name', '')}"
+        )
     if getattr(result, "error", None):
         click.echo(f"    Error: {result.error}")
     cleanup = getattr(result, "cleanup", None)
@@ -801,11 +803,13 @@ def _record_onboarding_completion() -> None:
     except (TypeError, ValueError):
         runs = 0
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    update_state({
-        "onboarding_last_run": timestamp,
-        "onboarding_runs": runs + 1,
-        "onboarding_completed_at": timestamp
-    })
+    update_state(
+        {
+            "onboarding_last_run": timestamp,
+            "onboarding_runs": runs + 1,
+            "onboarding_completed_at": timestamp,
+        }
+    )
 
 
 def _reset_onboarding_state() -> List[str]:
@@ -1130,7 +1134,9 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         return validated_tasks
 
     except subprocess.TimeoutExpired:
-        click.echo(f"    [debug] Generation timed out after {TASK_GENERATION_TIMEOUT_SECONDS}s", err=True)
+        click.echo(
+            f"    [debug] Generation timed out after {TASK_GENERATION_TIMEOUT_SECONDS}s", err=True
+        )
         return None
     except (FileNotFoundError, OSError) as exc:
         click.echo(f"    [debug] Subprocess error: {exc}", err=True)
@@ -1269,11 +1275,13 @@ def _parse_mcp_list_output(output: str) -> list[dict]:
                     else:
                         normalized_status = "failed"
 
-                    mcps.append({
-                        "name": name,
-                        "command": command,
-                        "status": normalized_status,
-                    })
+                    mcps.append(
+                        {
+                            "name": name,
+                            "command": command,
+                            "status": normalized_status,
+                        }
+                    )
             except ValueError:
                 # Skip malformed lines
                 continue
@@ -1290,7 +1298,9 @@ def _offer_intelligent_task_generation() -> bool:
     """
     # Check if user wants to skip intelligent generation
     if os.environ.get("CLODPUTER_SKIP_INTELLIGENT_GENERATION"):
-        click.echo("    Skipping intelligent generation (CLODPUTER_SKIP_INTELLIGENT_GENERATION set)")
+        click.echo(
+            "    Skipping intelligent generation (CLODPUTER_SKIP_INTELLIGENT_GENERATION set)"
+        )
         return False
 
     print_info("Analyzing your Claude Code setup...")
@@ -1305,7 +1315,9 @@ def _offer_intelligent_task_generation() -> bool:
         click.echo("    No MCPs detected")
 
     # Optionally skip generation if user says no
-    if not click.confirm("\n  Generate AI-powered task suggestions based on your setup?", default=True):
+    if not click.confirm(
+        "\n  Generate AI-powered task suggestions based on your setup?", default=True
+    ):
         print_dim("Skipped intelligent generation")
         return False
 
@@ -1397,7 +1409,7 @@ def _offer_intelligent_task_generation() -> bool:
 
         # Write task file
         try:
-            filepath.write_text(task['yaml_config'], encoding='utf-8')
+            filepath.write_text(task["yaml_config"], encoding="utf-8")
             print_success(f"Created {filename}")
             installed_count += 1
         except OSError as exc:

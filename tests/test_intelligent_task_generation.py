@@ -3,7 +3,6 @@
 from types import SimpleNamespace
 
 
-
 def test_parse_mcp_list_output():
     """Test parsing of `claude mcp list` output."""
     from clodputer.onboarding import _parse_mcp_list_output
@@ -53,9 +52,7 @@ def test_build_task_generation_prompt_with_gmail():
     """Test prompt includes email guidance when Gmail MCP is present."""
     from clodputer.onboarding import _build_task_generation_prompt
 
-    mcps = [
-        {"name": "gmail", "command": "npx gmail", "status": "connected"}
-    ]
+    mcps = [{"name": "gmail", "command": "npx gmail", "status": "connected"}]
 
     prompt = _build_task_generation_prompt(mcps)
 
@@ -68,9 +65,7 @@ def test_build_task_generation_prompt_with_calendar():
     """Test prompt includes calendar guidance when calendar MCP is present."""
     from clodputer.onboarding import _build_task_generation_prompt
 
-    mcps = [
-        {"name": "google-calendar", "command": "node calendar.js", "status": "connected"}
-    ]
+    mcps = [{"name": "google-calendar", "command": "node calendar.js", "status": "connected"}]
 
     prompt = _build_task_generation_prompt(mcps)
 
@@ -82,9 +77,7 @@ def test_build_task_generation_prompt_with_search():
     """Test prompt includes search guidance when search MCPs are present."""
     from clodputer.onboarding import _build_task_generation_prompt
 
-    mcps = [
-        {"name": "google-search", "command": "node search.js", "status": "connected"}
-    ]
+    mcps = [{"name": "google-search", "command": "node search.js", "status": "connected"}]
 
     prompt = _build_task_generation_prompt(mcps)
 
