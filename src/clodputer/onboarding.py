@@ -1079,9 +1079,9 @@ def _generate_task_suggestions(mcps: list[dict]) -> Optional[list[dict]]:
         # Build the prompt
         prompt = _build_task_generation_prompt(mcps)
 
-        # Invoke Claude Code in headless mode
+        # Invoke Claude Code in non-interactive mode
         result = subprocess.run(
-            [cli_path, "--headless", "--output-format", "json"],
+            [cli_path, "--print", "--output-format", "json"],
             input=prompt,
             capture_output=True,
             text=True,
@@ -1330,7 +1330,7 @@ def _offer_intelligent_task_generation() -> bool:
     if not tasks:
         print_warning("Could not generate task suggestions")
         click.echo("    Possible reasons:")
-        click.echo("      • Claude CLI may not support --headless mode")
+        click.echo("      • Claude CLI may not support --print mode")
         click.echo("      • Network connectivity issues")
         click.echo("      • Task validation failed for safety")
         click.echo("    Will use template system instead")
