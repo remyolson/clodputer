@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
 from clodputer.cleanup import CleanupReport
 from clodputer.executor import ExecutionResult
 from clodputer.reports import (
-    ReportError,
     compare_reports,
     generate_markdown_report,
     list_reports,

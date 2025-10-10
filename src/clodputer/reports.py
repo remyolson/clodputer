@@ -173,7 +173,7 @@ def generate_markdown_report(result: ExecutionResult, timestamp: str) -> str:
         lines.extend([
             "## JSON Parse Error",
             "",
-            f"```",
+            "```",
             result.output_parse_error,
             "```",
             "",

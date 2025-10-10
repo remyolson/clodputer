@@ -113,7 +113,6 @@ def detect_dependency_cycles(
         """Returns True if cycle detected."""
         if task_name in rec_stack:
             # Found a cycle - build the cycle path
-            cycle_start = path.index(task_name)
             path.append(task_name)  # Complete the cycle
             return True
 

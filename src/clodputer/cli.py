@@ -591,7 +591,7 @@ def inspect(task_name: str, output_format: str) -> None:
         click.echo(f"Description: {config.description}")
 
     if config.schedule:
-        click.echo(f"\nSchedule:")
+        click.echo("\nSchedule:")
         click.echo(f"  Type: {config.schedule.type}")
         click.echo(f"  Expression: {config.schedule.expression}")
         if config.schedule.timezone:
@@ -599,7 +599,7 @@ def inspect(task_name: str, output_format: str) -> None:
         click.echo(f"  Catch-up: {config.schedule.catch_up}")
 
     if config.trigger:
-        click.echo(f"\nTrigger:")
+        click.echo("\nTrigger:")
         click.echo(f"  Type: {config.trigger.type}")
         if config.trigger.type == "file_watch":
             click.echo(f"  Path: {config.trigger.path}")
@@ -609,7 +609,7 @@ def inspect(task_name: str, output_format: str) -> None:
         elif config.trigger.type == "interval":
             click.echo(f"  Interval: {config.trigger.seconds}s")
 
-    click.echo(f"\nTask Configuration:")
+    click.echo("\nTask Configuration:")
     click.echo(f"  Timeout: {config.task.timeout}s")
     click.echo(f"  Permission mode: {config.task.permission_mode}")
     click.echo(f"  Max retries: {config.task.max_retries}")
@@ -622,7 +622,7 @@ def inspect(task_name: str, output_format: str) -> None:
     if config.task.mcp_config:
         click.echo(f"  MCP config: {config.task.mcp_config}")
 
-    click.echo(f"\nPrompt:")
+    click.echo("\nPrompt:")
     click.echo(f"  {config.task.prompt[:200]}{'...' if len(config.task.prompt) > 200 else ''}")
 
     # Show metrics if available
@@ -631,7 +631,7 @@ def inspect(task_name: str, output_format: str) -> None:
         metrics = status.get("metrics", {}).get(task_name)
 
     if metrics:
-        click.echo(f"\nMetrics:")
+        click.echo("\nMetrics:")
         click.echo(f"  Success: {metrics['success']}")
         click.echo(f"  Failure: {metrics['failure']}")
         click.echo(f"  Avg duration: {metrics['avg_duration']:.2f}s")
@@ -848,12 +848,12 @@ def validate(task_name: str, output_format: str, no_mcp_check: bool) -> None:
             click.echo(f"   ERROR: {issue}")
 
     if result.has_warnings:
-        click.echo(f"\n⚠️  Warnings:")
+        click.echo("\n⚠️  Warnings:")
         for issue in result.get_warnings():
             click.echo(f"   {issue}")
 
     if result.get_infos():
-        click.echo(f"\nℹ️  Info:")
+        click.echo("\nℹ️  Info:")
         for issue in result.get_infos():
             click.echo(f"   {issue}")
 
@@ -1041,7 +1041,7 @@ def results(
         if output_format == "json":
             click.echo(json.dumps(comparison, indent=2))
         else:
-            click.echo(f"Comparison: Latest vs Previous\n")
+            click.echo("Comparison: Latest vs Previous\n")
             click.echo(f"Status: {comparison['status_from']} → {comparison['status_to']}")
 
             if comparison["status_changed"]:
@@ -1058,7 +1058,7 @@ def results(
                 )
 
             if comparison.get("error_changed"):
-                click.echo(f"\nError changed:")
+                click.echo("\nError changed:")
                 click.echo(f"  From: {comparison.get('error_from', 'None')}")
                 click.echo(f"  To: {comparison.get('error_to', 'None')}")
 
@@ -1470,7 +1470,7 @@ def queue(clear: bool) -> None:
                         config = load_task_by_name(item['name'])
                         max_retries = config.task.max_retries
                         extras.append(f"retry {attempt}/{max_retries}")
-                    except:
+                    except Exception:
                         extras.append(f"retry {attempt}")
 
                 if item.get("not_before"):

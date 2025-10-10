@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 STATE_DIR = Path.home() / ".clodputer" / "state"
 MAX_STATE_SIZE = 1024 * 1024  # 1MB max per task state

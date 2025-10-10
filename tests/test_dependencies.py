@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from clodputer.config import DependencyConfig, TaskConfig, create_task_from_json
+from clodputer.config import TaskConfig, create_task_from_json
 from clodputer.dependencies import (
     DependencyError,
     check_dependency_satisfied,
