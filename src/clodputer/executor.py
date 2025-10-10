@@ -33,6 +33,7 @@ from .environment import claude_cli_path, store_claude_cli_path
 from .logger import StructuredLogger
 from .metrics import record_failure, record_success
 from .queue import LockAcquisitionError, QueueCorruptionError, QueueItem, QueueManager
+from .reports import save_execution_report
 from .task_state import record_task_execution
 
 logger = logging.getLogger(__name__)
@@ -405,9 +406,33 @@ class TaskExecutor:
                 self.queue_manager.mark_failed(queue_item.id, timeout_payload)
                 record_failure(config.name)
                 if config.task.max_retries > queue_item.attempt:
+                    # Calculate exponential backoff with cap
                     delay = config.task.retry_backoff_seconds * (2**queue_item.attempt)
+                    delay = min(delay, config.task.max_retry_delay)
+                    debug_logger.info(
+                        "task_retry_scheduled",
+                        description=f"🔄 Retry scheduled for {config.name} (attempt {queue_item.attempt + 1}/{config.task.max_retries})",
+                        tags=["retry", "backoff"],
+                        marker="🔄",
+                        summary={
+                            "task": config.name,
+                            "attempt": queue_item.attempt + 1,
+                            "max_retries": config.task.max_retries,
+                            "delay_seconds": delay,
+                            "backoff_strategy": "exponential",
+                        },
+                        delay=delay,
+                        next_attempt=queue_item.attempt + 1,
+                    )
                     self.queue_manager.requeue_with_delay(queue_item, delay)
             self.execution_logger.task_failed(queue_item.id, config.name, timeout_payload, metadata)
+
+            # Save execution report
+            try:
+                save_execution_report(result)
+            except Exception as exc:
+                logger.warning("Failed to save execution report: %s", exc)
+
             return result
         finally:
             cleanup_report = cleanup_report or cleanup_process_tree(process.pid)
@@ -519,7 +544,24 @@ class TaskExecutor:
                     failure_payload,
                 )
                 if config.task.max_retries > queue_item.attempt:
+                    # Calculate exponential backoff with cap
                     delay = config.task.retry_backoff_seconds * (2**queue_item.attempt)
+                    delay = min(delay, config.task.max_retry_delay)
+                    debug_logger.info(
+                        "task_retry_scheduled",
+                        description=f"🔄 Retry scheduled for {config.name} (attempt {queue_item.attempt + 1}/{config.task.max_retries})",
+                        tags=["retry", "backoff"],
+                        marker="🔄",
+                        summary={
+                            "task": config.name,
+                            "attempt": queue_item.attempt + 1,
+                            "max_retries": config.task.max_retries,
+                            "delay_seconds": delay,
+                            "backoff_strategy": "exponential",
+                        },
+                        delay=delay,
+                        next_attempt=queue_item.attempt + 1,
+                    )
                     self.queue_manager.requeue_with_delay(queue_item, delay)
 
         if status == "success":
@@ -592,6 +634,25 @@ class TaskExecutor:
             return_code=return_code,
             has_parse_error=parse_error is not None,
         )
+
+        # Save execution report
+        try:
+            json_path, md_path = save_execution_report(result)
+            debug_logger.info(
+                "execution_report_saved",
+                description=f"📄 Saved execution report for {config.name}",
+                tags=["report", "save"],
+                marker="📄",
+                summary={
+                    "json": str(json_path.name),
+                    "markdown": str(md_path.name),
+                    "task": config.name,
+                },
+                json_path=str(json_path),
+                markdown_path=str(md_path),
+            )
+        except Exception as exc:
+            logger.warning("Failed to save execution report: %s", exc)
 
         return result
 

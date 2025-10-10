@@ -803,8 +803,113 @@ def modify(
 @click.option("--latest", is_flag=True, help="Show only the latest execution result")
 @click.option("--limit", type=int, default=10, help="Number of results to show")
 @click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
-def results(task_name: str, latest: bool, limit: int, output_format: str) -> None:
+@click.option("--compare", is_flag=True, help="Compare latest run with previous run")
+@click.option("--markdown", is_flag=True, help="Show markdown report for latest run")
+@click.option("--detailed", is_flag=True, help="Show detailed debugging info from reports")
+def results(
+    task_name: str,
+    latest: bool,
+    limit: int,
+    output_format: str,
+    compare: bool,
+    markdown: bool,
+    detailed: bool,
+) -> None:
     """Get execution results for a task."""
+    from .reports import list_reports, compare_reports
+
+    # If markdown flag, show markdown report
+    if markdown:
+        task_dir = Path.home() / ".clodputer" / "outputs" / task_name
+        if not task_dir.exists():
+            click.echo(f"No reports found for task '{task_name}'", err=True)
+            return
+
+        md_files = sorted(task_dir.glob("*.md"), reverse=True)
+        if not md_files:
+            click.echo(f"No markdown reports found for task '{task_name}'", err=True)
+            return
+
+        content = md_files[0].read_text(encoding="utf-8")
+        click.echo(content)
+        return
+
+    # If compare flag, compare latest two runs
+    if compare:
+        reports = list_reports(task_name, limit=2)
+        if len(reports) < 2:
+            click.echo(f"Need at least 2 execution reports to compare (found {len(reports)})", err=True)
+            return
+
+        comparison = compare_reports(reports[0], reports[1])
+
+        if output_format == "json":
+            click.echo(json.dumps(comparison, indent=2))
+        else:
+            click.echo(f"Comparison: Latest vs Previous\n")
+            click.echo(f"Status: {comparison['status_from']} → {comparison['status_to']}")
+
+            if comparison["status_changed"]:
+                click.echo("  ⚠️  Status changed!")
+
+            duration_delta = comparison["duration_delta"]
+            if duration_delta != 0:
+                sign = "+" if duration_delta > 0 else ""
+                click.echo(f"Duration: {sign}{duration_delta:.2f}s")
+
+            if comparison["return_code_changed"]:
+                click.echo(
+                    f"Return code: {comparison['return_code_from']} → {comparison['return_code_to']}"
+                )
+
+            if comparison.get("error_changed"):
+                click.echo(f"\nError changed:")
+                click.echo(f"  From: {comparison.get('error_from', 'None')}")
+                click.echo(f"  To: {comparison.get('error_to', 'None')}")
+
+            if comparison["output_changed"]:
+                click.echo("  ⚠️  Output changed between runs")
+        return
+
+    # Use new report system if detailed flag or reports exist
+    if detailed:
+        reports = list_reports(task_name, limit=limit if not latest else 1)
+        if reports:
+            if output_format == "json":
+                click.echo(json.dumps(reports, indent=2))
+            else:
+                click.echo(f"Detailed execution reports for '{task_name}' ({len(reports)} shown):\n")
+                for report in reports:
+                    status_symbol = {
+                        "success": "✅",
+                        "failure": "❌",
+                        "timeout": "⏱️",
+                        "error": "⚠️",
+                    }.get(report.get("status", ""), "❓")
+
+                    timestamp = report.get("report_timestamp", "unknown")
+                    click.echo(f"{status_symbol} {timestamp} - {report.get('status', 'unknown')}")
+                    click.echo(f"   Duration: {report.get('duration', 0):.2f}s")
+                    click.echo(f"   Return code: {report.get('return_code')}")
+
+                    if report.get("error"):
+                        click.echo(f"   Error: {report['error']}")
+
+                    if report.get("output_parse_error"):
+                        click.echo(f"   Parse error: {report['output_parse_error']}")
+
+                    if report.get("stdout"):
+                        preview = report["stdout"][:100] + "..." if len(report["stdout"]) > 100 else report["stdout"]
+                        click.echo(f"   Stdout: {preview}")
+
+                    if report.get("stderr"):
+                        preview = report["stderr"][:100] + "..." if len(report["stderr"]) > 100 else report["stderr"]
+                        click.echo(f"   Stderr: {preview}")
+
+                    click.echo(f"   Report: {report.get('report_file')}")
+                    click.echo()
+            return
+
     # Collect results from logs
     task_results = []
     for event in iter_events(reverse=True):
@@ -1160,10 +1265,32 @@ def queue(clear: bool) -> None:
             click.echo("\nQueued tasks:")
             for item in status["queued"]:
                 extras = []
-                if item.get("attempt"):
-                    extras.append(f"attempt={item['attempt']}")
+                attempt = item.get("attempt", 0)
+
+                # Show retry status if this is a retry
+                if attempt > 0:
+                    # Try to get max_retries from config
+                    try:
+                        from .config import load_task_by_name
+                        config = load_task_by_name(item['name'])
+                        max_retries = config.task.max_retries
+                        extras.append(f"retry {attempt}/{max_retries}")
+                    except:
+                        extras.append(f"retry {attempt}")
+
                 if item.get("not_before"):
-                    extras.append(f"not_before={item['not_before']}")
+                    # Calculate time until retry
+                    not_before_dt = _parse_iso(item['not_before'])
+                    if not_before_dt:
+                        now = datetime.now(timezone.utc)
+                        if not_before_dt > now:
+                            wait_seconds = (not_before_dt - now).total_seconds()
+                            extras.append(f"in {_format_duration(wait_seconds)}")
+                        else:
+                            extras.append("ready")
+                    else:
+                        extras.append(f"not_before={item['not_before']}")
+
                 extra_text = f" ({', '.join(extras)})" if extras else ""
                 click.echo(
                     f" • {item['name']} [{item['priority']}] enqueued_at={item['enqueued_at']}{extra_text}"

@@ -104,6 +104,7 @@ class TaskSpec(BaseModel):
     mcp_config: Optional[str] = None
     max_retries: int = Field(default=0, ge=0)
     retry_backoff_seconds: int = Field(default=60, ge=1)
+    max_retry_delay: int = Field(default=3600, ge=1)  # Cap retry delay at 1 hour by default
 
     @model_validator(mode="after")
     def validate_tools(self) -> "TaskSpec":
