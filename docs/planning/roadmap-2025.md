@@ -53,32 +53,34 @@
 
 ## 🗺️ Roadmap Overview
 
-### Phase 1: Claude-Native Foundation (Weeks 1-3) 🔥
+### Phase 1: Claude-Native Foundation (Weeks 1-3) 🔥 ✅ COMPLETE
 **Goal:** Enable Claude Code to create, query, and manage tasks programmatically
 **Priority:** CRITICAL - Unlocks primary user workflow
 **Impact:** Transforms Claude Code from documentation reader to active automation creator
 
-### Phase 2: Core Reliability (Weeks 4-6)
+### Phase 2: Core Reliability (Weeks 4-6) ✅ COMPLETE
 **Goal:** Make background task execution bulletproof and debuggable
 **Priority:** CRITICAL - Enables trust in the system
 
-### Phase 3: Onboarding Magic (Weeks 7-9)
+### Phase 3: Onboarding Magic (Weeks 7-9) ⏭️ SKIPPED
 **Goal:** Reduce friction and create "wow" moments in first use
-**Priority:** HIGH - Determines adoption
+**Priority:** DEFERRED - Current onboarding is adequate, focus on core features
+**Rationale:** Onboarding improvements can wait. Claude Code is smart enough to guide users through the existing flow.
 
-### Phase 4: Integration & Authoring (Weeks 10-12)
-**Goal:** Make task creation and Claude integration seamless
-**Priority:** HIGH - Enables power users
+### Phase 4: Integration & Testing (Weeks 7-8)
+**Goal:** Keep CLAUDE.md current and enable task testing
+**Priority:** HIGH - Ensures reliability and keeps Claude Code integration up-to-date
+**Features:** CLAUDE.md auto-update, task testing framework (dry-run, validation)
 
-### Phase 5: UX Polish (Weeks 13-15)
+### Phase 5: UX Polish (Weeks 9-11)
 **Goal:** Make dashboard and menu bar delightful
 **Priority:** MEDIUM - Increases engagement
 
-### Phase 6: Advanced Intelligence (Weeks 16-20)
+### Phase 6: Advanced Intelligence (Weeks 12-16)
 **Goal:** Add silent optimization, NL generation, dependencies
 **Priority:** MEDIUM - Differentiator features
 
-### Phase 7: Community & Scale (Beyond Week 20)
+### Phase 7: Community & Scale (Beyond Week 16)
 **Goal:** Enable sharing, learning, optimization
 **Priority:** LOW - Post-launch
 
@@ -594,59 +596,86 @@ Needed: Task remembers last processed email ID ✅
 
 ---
 
-## 📅 Phase 3: Onboarding Magic (Weeks 7-9)
+## 📅 Phase 3: Onboarding Magic ⏭️ SKIPPED
 
-**Timeline:** 3 weeks
-**Goal:** First-time users get value in under 3 minutes
+**Status:** ⏭️ **SKIPPED - Moving to Phase 4**
 
-### Feature 3.1: Express Mode (Week 7)
-- 60-second onboarding
-- Auto-generate 1 task
-- Test immediately
-- Schedule automatically
+**Rationale:**
+- Current onboarding is adequate for early users
+- Claude Code is smart enough to guide users through existing flow
+- Focus on core reliability and testing features first
+- Onboarding polish can be added later based on user feedback
 
-### Feature 3.2: Task Creation Wizard (Week 8)
-- Interactive task creation
-- Smart defaults
-- Validation during creation
-- Test before scheduling
-
-### Feature 3.3: Onboarding Analytics (Week 9)
-- Track friction points (opt-in)
-- Optimize based on data
-- Feedback collection
-
-**Phase 3 Deliverables:**
+**Original Features (deferred):**
 - Express mode for rapid setup
-- Interactive task wizard
-- Data-driven onboarding optimization
+- Interactive task creation wizard
+- Onboarding analytics
+
+**Decision:** Skip to Phase 4 (Integration & Testing) to focus on features that directly improve reliability and Claude Code integration.
 
 ---
 
-## 📅 Phase 4: Integration & Authoring (Weeks 10-12)
+## 📅 Phase 4: Integration & Testing (Weeks 7-8)
 
-**Timeline:** 3 weeks
-**Goal:** Make task creation and Claude integration seamless
+**Timeline:** 2 weeks
+**Goal:** Keep CLAUDE.md current and enable task testing before deployment
 
-### Feature 4.1: CLAUDE.md Auto-Update (Week 10)
-- Version tracking for CLAUDE.md
-- Automatic upgrade notifications
-- Preserve user customizations
+**Status:** 🎯 **NEXT UP**
 
-### Feature 4.2: Task Testing Framework (Week 11)
-- Dry-run validation
-- Quick test mode
-- Error simulation
+### Feature 4.1: CLAUDE.md Auto-Update (Week 7)
+**Problem:** CLAUDE.md section gets out of sync with new features
 
-### Feature 4.3: Template Library (Week 12)
-- 12+ task templates
-- Categorization by use case
-- Customization wizard
+**Implementation:**
+- Version tracking for Clodputer section in CLAUDE.md
+- Automatic upgrade notifications when running `clodputer` commands
+- Preserve user customizations while updating examples
+- Show diff of what would change
+
+**Files to Modify:**
+- `src/clodputer/onboarding.py` - Add version tracking
+- `src/clodputer/cli.py` - Add update-claude-md command
+- `docs/planning/CLAUDE-MD-ADDITION.md` - Version the template
+
+**Success Criteria:**
+- [ ] CLAUDE.md version tracked in config
+- [ ] Update notification on version mismatch
+- [ ] `clodputer update-claude-md` merges changes
+- [ ] User edits preserved during update
+
+### Feature 4.2: Task Testing Framework (Week 8)
+**Problem:** No way to test tasks before deploying to schedule (dry-run from Phase 1.4 deferred)
+
+**Implementation:**
+- Dry-run mode: `clodputer test <task> --dry-run`
+  - Validates config without execution
+  - Checks tool permissions
+  - Estimates resource usage
+
+- Quick test mode: `clodputer test <task>` (enhance existing `run` command)
+  - Runs task once in foreground
+  - Shows detailed output
+  - Validates against expected output patterns
+
+- Error simulation: `clodputer test <task> --simulate-failure`
+  - Test retry logic
+  - Test error handling
+  - Verify cleanup behavior
+
+**Files to Modify:**
+- `src/clodputer/cli.py` - Add test command
+- `src/clodputer/executor.py` - Add dry-run mode
+- `tests/test_cli.py` - Test validation logic
+
+**Success Criteria:**
+- [ ] Dry-run validates without executing
+- [ ] Test mode runs in foreground with detailed output
+- [ ] Error simulation tests retry/cleanup logic
+- [ ] Clear pass/fail output for all modes
 
 **Phase 4 Deliverables:**
-- CLAUDE.md stays current
+- CLAUDE.md stays current automatically
 - Task testing before deployment
-- Rich template library
+- Validation and dry-run capabilities
 
 ---
 
@@ -779,7 +808,7 @@ depends_on:
 
 ## 🎯 Release Schedule
 
-### v0.2.0 (Week 3) - "Claude-Native Release" 🔥
+### v0.2.0 (Week 3) - "Claude-Native Release" 🔥 ✅ SHIPPED
 - JSON task creation API
 - Task query/discovery
 - Task state storage
@@ -787,34 +816,29 @@ depends_on:
 - Results API
 - CLAUDE.md integration
 
-### v0.3.0 (Week 6) - "Reliability Release"
+### v0.3.0 (Week 6) - "Reliability Release" ✅ SHIPPED
 - Detailed execution reports
 - Enhanced retry logic
-- Progress monitoring
+- Progress monitoring (deferred to v0.5.0)
 
-### v0.4.0 (Week 9) - "Onboarding Release"
-- Express mode
-- Task creation wizard
-- Onboarding analytics
-
-### v0.5.0 (Week 12) - "Integration Release"
+### v0.4.0 (Week 8) - "Testing & Integration Release" 🎯 NEXT
 - CLAUDE.md auto-update
-- Task testing framework
-- Template library
+- Task testing framework (dry-run, validation, error simulation)
 
-### v0.6.0 (Week 15) - "UX Release"
+### v0.5.0 (Week 11) - "UX Release"
 - Real-time dashboard
 - Enhanced menu bar
 - Visual polish
+- Progress monitoring (from Phase 2.3)
 
-### v0.7.0 (Week 20) - "Intelligence Release"
+### v0.6.0 (Week 16) - "Intelligence Release"
 - Silent optimization
 - Passive analytics
 - Self-healing
 - NL task generation
 - Task dependencies
 
-### v1.0.0 (Week 24) - "Production Release"
+### v1.0.0 (Week 20) - "Production Release"
 - All Phase 1-6 features complete
 - Comprehensive documentation
 - User testing incorporated
