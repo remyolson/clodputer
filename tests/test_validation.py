@@ -131,3 +131,60 @@ def test_validate_no_tools(temp_tasks_dir):
     assert result.is_valid
     warnings = result.get_warnings()
     assert any("tools" in str(w).lower() for w in warnings)
+
+
+def test_validate_with_dependencies(temp_tasks_dir):
+    """Test validation with task dependencies."""
+    # Create dependency task first
+    dep_task_data = {
+        "name": "dep-task",
+        "task": {
+            "prompt": "Dependency task",
+            "allowed_tools": ["Read"],
+        }
+    }
+    create_task_from_json(dep_task_data, temp_tasks_dir)
+
+    # Create task that depends on it
+    task_data = {
+        "name": "main-task",
+        "task": {
+            "prompt": "Main task with dependency",
+            "allowed_tools": ["Read"],
+        },
+        "depends_on": [
+            {
+                "task": "dep-task",
+                "condition": "success",
+                "max_age": 3600
+            }
+        ]
+    }
+    create_task_from_json(task_data, temp_tasks_dir)
+
+    result = validate_task("main-task", temp_tasks_dir, check_mcp=False)
+
+    assert result.is_valid
+    assert len(result.get_errors()) == 0
+
+
+def test_validate_with_missing_dependency(temp_tasks_dir):
+    """Test validation detects missing dependency task."""
+    task_data = {
+        "name": "bad-deps",
+        "task": {
+            "prompt": "Task with missing dependency",
+            "allowed_tools": ["Read"],
+        },
+        "depends_on": [
+            {"task": "nonexistent"}
+        ]
+    }
+    create_task_from_json(task_data, temp_tasks_dir)
+
+    result = validate_task("bad-deps", temp_tasks_dir, check_mcp=False)
+
+    assert not result.is_valid
+    errors = result.get_errors()
+    assert len(errors) > 0
+    assert any("nonexistent" in str(e).lower() for e in errors)

@@ -235,6 +235,20 @@ def _check_best_practices(config: TaskConfig, result: ValidationResult) -> None:
         )
 
 
+def _check_dependencies(config: TaskConfig, result: ValidationResult, tasks_dir: Path) -> None:
+    """Validate task dependencies."""
+    if not config.depends_on:
+        return
+
+    from .dependencies import validate_dependencies
+
+    # Validate dependencies
+    dep_errors = validate_dependencies(config, tasks_dir)
+
+    for error in dep_errors:
+        result.add_error(error, "depends_on")
+
+
 def validate_task(
     task_name: str,
     tasks_dir: Path = TASKS_DIR,
@@ -262,6 +276,7 @@ def validate_task(
 
     # Perform additional checks
     _check_schedule(config, result)
+    _check_dependencies(config, result, tasks_dir)
     _check_resources(config, result)
     _check_best_practices(config, result)
 

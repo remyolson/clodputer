@@ -615,67 +615,75 @@ Needed: Task remembers last processed email ID ✅
 
 ---
 
-## 📅 Phase 4: Integration & Testing (Weeks 7-8)
+## 📅 Phase 4: Integration & Testing (Weeks 7-8) ✅ COMPLETE
 
-**Timeline:** 2 weeks
+**Timeline:** 2 weeks → **Completed: January 2025**
 **Goal:** Keep CLAUDE.md current and enable task testing before deployment
 
-**Status:** 🎯 **NEXT UP**
+**Status:** ✅ **COMPLETE** (Streamlined to validation only)
 
-### Feature 4.1: CLAUDE.md Auto-Update (Week 7)
+### Feature 4.1: CLAUDE.md Auto-Update (Week 7) ⏭️ SKIPPED
 **Problem:** CLAUDE.md section gets out of sync with new features
 
-**Implementation:**
+**Status:** ⏭️ **SKIPPED**
+
+**Rationale:**
+- Too invasive - users may customize their CLAUDE.md
+- Claude Code can reference updated docs when needed
+- Not critical for core functionality
+- Can revisit if there's clear user demand
+
+**Original Implementation Plan:**
 - Version tracking for Clodputer section in CLAUDE.md
 - Automatic upgrade notifications when running `clodputer` commands
 - Preserve user customizations while updating examples
 - Show diff of what would change
 
-**Files to Modify:**
-- `src/clodputer/onboarding.py` - Add version tracking
-- `src/clodputer/cli.py` - Add update-claude-md command
-- `docs/planning/CLAUDE-MD-ADDITION.md` - Version the template
+### Feature 4.2: Task Validation (Dry-Run) (Week 8) ✅ COMPLETE
+**Problem:** No way to validate tasks before deploying to schedule
+
+**Status:** ✅ **COMPLETE** (January 2025)
+
+**Implementation - Option A: Dry-Run Validation Only**
+
+Selected the lightweight approach focused on practical value:
+
+```bash
+clodputer validate <task>
+```
+
+**What it validates:**
+1. **Schema validation** - All required fields present, correct types
+2. **Schedule syntax** - Cron expression validity
+3. **MCP tool availability** - Checks if MCP servers are configured
+4. **Resource warnings** - Very long/short timeouts, many retries
+5. **Best practices** - Prompt length, no tools specified, etc.
+
+**Output modes:**
+- Text output with emojis (✅ ❌ ⚠️ ℹ️)
+- JSON output with `--format json`
+- Exit code 0 for valid, 1 for errors
+
+**Files Modified:**
+- ✅ `src/clodputer/validation.py` - New validation module
+- ✅ `src/clodputer/cli.py` - Added validate command
+- ✅ `tests/test_validation.py` - 5 comprehensive tests
 
 **Success Criteria:**
-- [ ] CLAUDE.md version tracked in config
-- [ ] Update notification on version mismatch
-- [ ] `clodputer update-claude-md` merges changes
-- [ ] User edits preserved during update
+- [x] Validates config without execution
+- [x] Checks cron expression syntax
+- [x] Verifies MCP tool availability (via `claude mcp list`)
+- [x] Warns about resource issues (timeout, retries)
+- [x] Best practice recommendations (prompt length, tools)
+- [x] JSON output mode for programmatic use
+- [x] Clear exit codes for scripting
 
-### Feature 4.2: Task Testing Framework (Week 8)
-**Problem:** No way to test tasks before deploying to schedule (dry-run from Phase 1.4 deferred)
-
-**Implementation:**
-- Dry-run mode: `clodputer test <task> --dry-run`
-  - Validates config without execution
-  - Checks tool permissions
-  - Estimates resource usage
-
-- Quick test mode: `clodputer test <task>` (enhance existing `run` command)
-  - Runs task once in foreground
-  - Shows detailed output
-  - Validates against expected output patterns
-
-- Error simulation: `clodputer test <task> --simulate-failure`
-  - Test retry logic
-  - Test error handling
-  - Verify cleanup behavior
-
-**Files to Modify:**
-- `src/clodputer/cli.py` - Add test command
-- `src/clodputer/executor.py` - Add dry-run mode
-- `tests/test_cli.py` - Test validation logic
-
-**Success Criteria:**
-- [ ] Dry-run validates without executing
-- [ ] Test mode runs in foreground with detailed output
-- [ ] Error simulation tests retry/cleanup logic
-- [ ] Clear pass/fail output for all modes
+**Decision:** Skipped error simulation and special test modes - they add complexity without proportional value. Users can just run `clodputer run <task>` to test execution.
 
 **Phase 4 Deliverables:**
-- CLAUDE.md stays current automatically
-- Task testing before deployment
-- Validation and dry-run capabilities
+- ✅ Task validation before deployment
+- ✅ Comprehensive error/warning/info feedback
+- ⏭️ CLAUDE.md auto-update (skipped)
 
 ---
 
@@ -821,9 +829,9 @@ depends_on:
 - Enhanced retry logic
 - Progress monitoring (deferred to v0.5.0)
 
-### v0.4.0 (Week 8) - "Testing & Integration Release" 🎯 NEXT
-- CLAUDE.md auto-update
-- Task testing framework (dry-run, validation, error simulation)
+### v0.4.0 (Week 8) - "Validation Release" ✅ SHIPPED
+- Task validation (dry-run) with comprehensive checks
+- CLAUDE.md auto-update (skipped - not needed)
 
 ### v0.5.0 (Week 11) - "UX Release"
 - Real-time dashboard
@@ -838,11 +846,12 @@ depends_on:
 - NL task generation
 - Task dependencies
 
-### v1.0.0 (Week 20) - "Production Release"
+### v1.0.0 (Week 16) - "Production Release"
 - All Phase 1-6 features complete
 - Comprehensive documentation
 - User testing incorporated
 - Production-ready stability
+- (Moved up from Week 20 due to Phase 3 skip and Phase 4 streamlining)
 
 ---
 

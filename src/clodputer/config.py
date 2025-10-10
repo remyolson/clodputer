@@ -88,6 +88,25 @@ def _is_valid_tool(name: str) -> bool:
     return name in KNOWN_CORE_TOOLS or name.startswith("mcp__")
 
 
+class DependencyConfig(BaseModel):
+    """Configuration for task dependencies.
+
+    Allows tasks to depend on other tasks, with conditions:
+    - success: Only run if dependency succeeded
+    - complete: Run if dependency completed (success or failure)
+    - always: Always run, wait for dependency to finish
+    """
+    task: str = Field(description="Name of the task to depend on")
+    condition: Literal["success", "complete", "always"] = Field(
+        default="success",
+        description="Condition for running this task"
+    )
+    max_age: Optional[int] = Field(
+        default=None,
+        description="Maximum age of dependency result in seconds (optional)"
+    )
+
+
 class TaskActions(BaseModel):
     log: Optional[str] = None
     notify: Optional[bool] = None
@@ -139,6 +158,10 @@ class TaskConfig(BaseModel):
     schedule: Optional[ScheduleConfig] = None
     trigger: Optional[TriggerConfig] = None
     priority: Literal["normal", "high"] = "normal"
+    depends_on: List[DependencyConfig] = Field(
+        default_factory=list,
+        description="Tasks this task depends on"
+    )
     task: TaskSpec
     on_success: List[TaskActions] = Field(default_factory=list)
     on_failure: List[TaskActions] = Field(default_factory=list)
@@ -298,6 +321,7 @@ __all__ = [
     "TaskConfig",
     "TaskSpec",
     "TaskActions",
+    "DependencyConfig",
     "ScheduleConfig",
     "TriggerConfig",
     "load_task_by_name",

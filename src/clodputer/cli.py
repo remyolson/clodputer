@@ -7,6 +7,7 @@ Commands included:
 - clodputer create-task
 - clodputer modify <task>
 - clodputer validate <task>
+- clodputer deps <task>
 - clodputer run <task>
 - clodputer list
 - clodputer inspect <task>
@@ -858,6 +859,138 @@ def validate(task_name: str, output_format: str, no_mcp_check: bool) -> None:
 
     if not result.is_valid:
         sys.exit(1)
+
+
+@cli.command()
+@click.argument("task_name")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option("--tree", is_flag=True, help="Show full dependency tree")
+@click.option("--reverse", is_flag=True, help="Show tasks that depend on this task")
+def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
+    """Show task dependencies.
+
+    Examples:
+        # Show dependencies for a task
+        clodputer deps my-task
+
+        # Show full dependency tree
+        clodputer deps my-task --tree
+
+        # Show which tasks depend on this task
+        clodputer deps my-task --reverse
+    """
+    try:
+        config = load_task_by_name(task_name)
+    except ConfigError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if reverse:
+        # Find tasks that depend on this task
+        configs, errors = validate_all_tasks()
+        dependent_tasks = [c for c in configs if any(d.task == task_name for d in c.depends_on)]
+
+        if output_format == "json":
+            result = {
+                "task": task_name,
+                "dependent_tasks": [
+                    {
+                        "name": c.name,
+                        "dependencies": [{"task": d.task, "condition": d.condition, "max_age": d.max_age} for d in c.depends_on if d.task == task_name]
+                    }
+                    for c in dependent_tasks
+                ]
+            }
+            click.echo(json.dumps(result, indent=2))
+        else:
+            if dependent_tasks:
+                click.echo(f"Tasks that depend on '{task_name}':")
+                for c in dependent_tasks:
+                    deps = [d for d in c.depends_on if d.task == task_name]
+                    for dep in deps:
+                        condition_info = f" (condition: {dep.condition}"
+                        if dep.max_age:
+                            condition_info += f", max_age: {dep.max_age}s"
+                        condition_info += ")"
+                        click.echo(f" • {c.name}{condition_info}")
+            else:
+                click.echo(f"No tasks depend on '{task_name}'")
+        return
+
+    if tree:
+        # Show full dependency tree
+        from .dependencies import get_dependency_order
+        configs, errors = validate_all_tasks()
+
+        # Get all tasks involved in the dependency chain
+        involved_tasks = set([task_name])
+        to_check = [config]
+
+        while to_check:
+            current = to_check.pop()
+            for dep in current.depends_on:
+                if dep.task not in involved_tasks:
+                    involved_tasks.add(dep.task)
+                    try:
+                        dep_config = load_task_by_name(dep.task)
+                        to_check.append(dep_config)
+                    except ConfigError:
+                        pass
+
+        # Get all involved task configs
+        involved_configs = [c for c in configs if c.name in involved_tasks]
+
+        try:
+            ordered = get_dependency_order(involved_configs)
+
+            if output_format == "json":
+                result = {
+                    "task": task_name,
+                    "execution_order": [t.name for t in ordered],
+                    "dependencies": {
+                        t.name: [{"task": d.task, "condition": d.condition, "max_age": d.max_age} for d in t.depends_on]
+                        for t in ordered if t.depends_on
+                    }
+                }
+                click.echo(json.dumps(result, indent=2))
+            else:
+                click.echo(f"Dependency tree for '{task_name}' (execution order):\n")
+                for i, task in enumerate(ordered, 1):
+                    marker = "▶️ " if task.name == task_name else "  "
+                    click.echo(f"{marker}{i}. {task.name}")
+                    if task.depends_on:
+                        for dep in task.depends_on:
+                            condition_info = f"condition={dep.condition}"
+                            if dep.max_age:
+                                condition_info += f", max_age={dep.max_age}s"
+                            click.echo(f"      ↳ depends on: {dep.task} ({condition_info})")
+        except Exception as exc:
+            raise click.ClickException(f"Failed to build dependency tree: {exc}") from exc
+        return
+
+    # Show direct dependencies
+    if output_format == "json":
+        result = {
+            "task": task_name,
+            "dependencies": [
+                {
+                    "task": dep.task,
+                    "condition": dep.condition,
+                    "max_age": dep.max_age
+                }
+                for dep in config.depends_on
+            ]
+        }
+        click.echo(json.dumps(result, indent=2))
+    else:
+        if config.depends_on:
+            click.echo(f"Dependencies for '{task_name}':")
+            for dep in config.depends_on:
+                condition_info = f"condition: {dep.condition}"
+                if dep.max_age:
+                    condition_info += f", max_age: {dep.max_age}s"
+                click.echo(f" • {dep.task} ({condition_info})")
+        else:
+            click.echo(f"Task '{task_name}' has no dependencies")
 
 
 @cli.command()

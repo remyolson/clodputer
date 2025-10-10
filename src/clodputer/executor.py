@@ -241,6 +241,33 @@ class TaskExecutor:
     # ------------------------------------------------------------------
     # Core execution
     # ------------------------------------------------------------------
+    def _check_dependencies(self, config: TaskConfig) -> Tuple[bool, Optional[str]]:
+        """Check if all task dependencies are satisfied.
+
+        Returns:
+            Tuple of (satisfied: bool, reason: Optional[str])
+        """
+        if not config.depends_on:
+            return True, None
+
+        from pathlib import Path
+        from .dependencies import check_dependency_satisfied
+
+        # Use default outputs directory
+        outputs_dir = Path.home() / ".clodputer" / "outputs"
+
+        for dep in config.depends_on:
+            satisfied, reason = check_dependency_satisfied(
+                dep.task,
+                dep.condition,
+                dep.max_age,
+                outputs_dir
+            )
+            if not satisfied:
+                return False, reason
+
+        return True, None
+
     def _execute(
         self,
         config: TaskConfig,
@@ -255,6 +282,72 @@ class TaskExecutor:
             task_name=config.name,
             priority=config.priority,
         )
+
+        # Check dependencies before executing
+        if config.depends_on:
+            debug_logger.info(
+                "checking_dependencies",
+                description=f"🔗 Checking {len(config.depends_on)} dependencies for {config.name}",
+                tags=["dependencies", "check"],
+                task_name=config.name,
+                dependency_count=len(config.depends_on),
+            )
+
+            satisfied, reason = self._check_dependencies(config)
+            if not satisfied:
+                debug_logger.error(
+                    "dependency_not_satisfied",
+                    description=f"❌ Dependency check failed: {reason}",
+                    tags=["dependencies", "failure"],
+                    marker="❌",
+                    task_name=config.name,
+                    reason=reason,
+                )
+
+                # Create a failure result for unsatisfied dependency
+                result = ExecutionResult(
+                    task_id=queue_item.id,
+                    task_name=config.name,
+                    status="failure",
+                    return_code=None,
+                    duration=0.0,
+                    stdout="",
+                    stderr=f"Dependency check failed: {reason}",
+                    cleanup=CleanupReport(terminated=[], killed=[], orphaned_mcps=[]),
+                    output_json=None,
+                    error=f"dependency_failed: {reason}",
+                )
+
+                if update_queue and self.queue_manager:
+                    failure_payload = {
+                        "error": "dependency_failed",
+                        "details": reason,
+                    }
+                    self.queue_manager.mark_failed(queue_item.id, failure_payload)
+                    record_failure(config.name)
+
+                self.execution_logger.task_failed(
+                    queue_item.id,
+                    config.name,
+                    {"error": "dependency_failed", "details": reason},
+                    {"stage": "dependency_check"}
+                )
+
+                # Save execution report
+                try:
+                    save_execution_report(result)
+                except Exception as exc:
+                    logger.warning("Failed to save execution report: %s", exc)
+
+                return result
+
+            debug_logger.info(
+                "dependencies_satisfied",
+                description=f"✅ All dependencies satisfied for {config.name}",
+                tags=["dependencies", "success"],
+                marker="✅",
+                task_name=config.name,
+            )
 
         command = build_command(config)
 
