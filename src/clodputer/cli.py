@@ -6,6 +6,7 @@ Commands included:
 - clodputer init
 - clodputer create-task
 - clodputer modify <task>
+- clodputer validate <task>
 - clodputer run <task>
 - clodputer list
 - clodputer inspect <task>
@@ -796,6 +797,67 @@ def modify(
         click.echo(f"✅ Modified task '{task_name}'")
         for change in changes:
             click.echo(f"   • {change}")
+
+
+@cli.command()
+@click.argument("task_name")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option("--no-mcp-check", is_flag=True, help="Skip MCP tool availability check")
+def validate(task_name: str, output_format: str, no_mcp_check: bool) -> None:
+    """Validate a task configuration without executing it (dry-run).
+
+    Performs comprehensive validation including:
+    - Schema validation (required fields, types)
+    - Schedule syntax validation (cron expression)
+    - MCP tool availability check
+    - Resource usage warnings (timeout, retries)
+    - Best practice recommendations
+
+    Examples:
+        # Validate task configuration
+        clodputer validate my-task
+
+        # JSON output for programmatic use
+        clodputer validate my-task --format json
+
+        # Skip MCP check for faster validation
+        clodputer validate my-task --no-mcp-check
+    """
+    from .validation import validate_task
+
+    result = validate_task(task_name, check_mcp=not no_mcp_check)
+
+    if output_format == "json":
+        output = {
+            "task": task_name,
+            "valid": result.is_valid,
+            "errors": [{"level": i.level, "message": i.message, "field": i.field} for i in result.get_errors()],
+            "warnings": [{"level": i.level, "message": i.message, "field": i.field} for i in result.get_warnings()],
+            "info": [{"level": i.level, "message": i.message, "field": i.field} for i in result.get_infos()],
+        }
+        click.echo(json.dumps(output, indent=2))
+        return
+
+    # Text output
+    if result.is_valid:
+        click.echo(f"✅ Task '{task_name}' is valid")
+    else:
+        click.echo(f"❌ Task '{task_name}' has validation errors:")
+        for issue in result.get_errors():
+            click.echo(f"   ERROR: {issue}")
+
+    if result.has_warnings:
+        click.echo(f"\n⚠️  Warnings:")
+        for issue in result.get_warnings():
+            click.echo(f"   {issue}")
+
+    if result.get_infos():
+        click.echo(f"\nℹ️  Info:")
+        for issue in result.get_infos():
+            click.echo(f"   {issue}")
+
+    if not result.is_valid:
+        sys.exit(1)
 
 
 @cli.command()
