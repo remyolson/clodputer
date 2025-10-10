@@ -32,11 +32,13 @@ class MissedTask:
         self.catch_up_mode = catch_up_mode
 
 
-def detect_missed_tasks(tasks: List[TaskConfig]) -> List[MissedTask]:
+def detect_missed_tasks(tasks: List[TaskConfig], now: Optional[datetime] = None) -> List[MissedTask]:
     """Detect tasks that missed their scheduled run times.
 
     Args:
         tasks: List of task configurations to check.
+        now: Current time for detection (defaults to datetime.now(timezone.utc)).
+             Mainly used for testing to avoid time-dependent test failures.
 
     Returns:
         List of MissedTask objects for tasks that should be caught up.
@@ -48,7 +50,8 @@ def detect_missed_tasks(tasks: List[TaskConfig]) -> List[MissedTask]:
         ...     print(f"[CATCH-UP] {miss.task_name}: missed run at {miss.missed_at}")
     """
     missed: List[MissedTask] = []
-    now = datetime.now(timezone.utc)
+    if now is None:
+        now = datetime.now(timezone.utc)
 
     for task in tasks:
         if not task.enabled:
