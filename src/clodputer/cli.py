@@ -3,11 +3,19 @@
 Click-based CLI entry point for Clodputer.
 
 Commands included:
+- clodputer init
+- clodputer create-task
+- clodputer modify <task>
 - clodputer run <task>
+- clodputer list
+- clodputer inspect <task>
+- clodputer search <keyword>
+- clodputer results <task>
+- clodputer health-check
+- clodputer state get/set/delete/list
 - clodputer dashboard
 - clodputer status
 - clodputer logs
-- clodputer list
 - clodputer queue
 - clodputer catch-up
 - clodputer install
@@ -34,7 +42,15 @@ import click
 import json
 
 from .catch_up import detect_missed_tasks
-from .config import ConfigError, TASKS_DIR, ensure_tasks_dir, load_task_by_name, validate_all_tasks
+from .config import (
+    ConfigError,
+    TASKS_DIR,
+    create_task_from_json,
+    ensure_tasks_dir,
+    load_task_by_name,
+    task_to_json,
+    validate_all_tasks,
+)
 from .cron import (
     CRON_LOG_FILE,
     CRON_SECTION_BEGIN,
@@ -67,6 +83,7 @@ from .watcher import (
 )
 from .menubar import run_menu_bar
 from .manager import run_manager
+from .state import StateError, delete_state, list_states, load_state, save_state, update_state
 
 try:
     __version__ = metadata.version("clodputer")
@@ -247,6 +264,135 @@ def init(
         raise click.ClickException(f"Onboarding failed: {exc}") from exc
 
 
+@cli.command(name="create-task")
+@click.option("--json", "json_input", help="JSON task configuration string")
+@click.option("--stdin", is_flag=True, help="Read JSON from stdin")
+@click.option("--test", is_flag=True, help="Test task immediately after creation")
+@click.option("--name", help="Quick-create: task name (requires --prompt)")
+@click.option("--prompt", help="Quick-create: task prompt (requires --name)")
+@click.option("--schedule", help="Quick-create: cron schedule expression (optional)")
+@click.option("--priority", type=click.Choice(["normal", "high"]), default="normal", help="Task priority")
+@click.option("--tools", help="Comma-separated list of allowed tools (optional)")
+@click.option("--format", "output_format", type=click.Choice(["json", "text"]), default="text", help="Output format")
+def create_task(
+    json_input: Optional[str],
+    stdin: bool,
+    test: bool,
+    name: Optional[str],
+    prompt: Optional[str],
+    schedule: Optional[str],
+    priority: str,
+    tools: Optional[str],
+    output_format: str,
+) -> None:
+    """Create a new task from JSON configuration or quick-create options.
+
+    Examples:
+        # Create from JSON string
+        clodputer create-task --json '{"name": "daily-email", "task": {"prompt": "Check email"}}'
+
+        # Create from stdin
+        echo '{"name": "task1", "task": {"prompt": "Do something"}}' | clodputer create-task --stdin
+
+        # Quick-create with name and prompt
+        clodputer create-task --name daily-backup --prompt "Backup my files" --schedule "0 2 * * *"
+
+        # Test immediately after creation
+        clodputer create-task --json '{...}' --test
+    """
+
+    # Validate input sources
+    input_sources = sum(1 for x in [json_input, stdin, (name and prompt)] if x)
+    if input_sources == 0:
+        raise click.ClickException(
+            "Must provide one of: --json, --stdin, or --name with --prompt"
+        )
+    if input_sources > 1:
+        raise click.ClickException(
+            "Cannot combine --json, --stdin, and quick-create options"
+        )
+
+    # Build task data
+    task_data: dict = {}
+
+    if json_input:
+        try:
+            task_data = json.loads(json_input)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(f"Invalid JSON: {exc}") from exc
+    elif stdin:
+        try:
+            task_data = json.load(sys.stdin)
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(f"Invalid JSON from stdin: {exc}") from exc
+    elif name and prompt:
+        # Quick-create mode
+        task_data = {
+            "name": name,
+            "priority": priority,
+            "task": {
+                "prompt": prompt,
+            }
+        }
+        if schedule:
+            task_data["schedule"] = {
+                "type": "cron",
+                "expression": schedule,
+            }
+        if tools:
+            task_data["task"]["allowed_tools"] = [t.strip() for t in tools.split(",")]
+    else:
+        raise click.ClickException("--name requires --prompt")
+
+    # Create the task
+    try:
+        config, task_path = create_task_from_json(task_data)
+    except ConfigError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    # Output result
+    if output_format == "json":
+        result = {
+            "status": "created",
+            "task_id": config.name,
+            "path": str(task_path),
+            "config": task_to_json(config),
+        }
+        click.echo(json.dumps(result, indent=2))
+    else:
+        click.echo(f"✅ Task '{config.name}' created at {task_path}")
+        if config.schedule:
+            click.echo(f"   Schedule: {config.schedule.expression}")
+        if config.trigger:
+            click.echo(f"   Trigger: {config.trigger.type}")
+        click.echo(f"   Priority: {config.priority}")
+
+    # Test if requested
+    if test:
+        if output_format == "text":
+            click.echo(f"\n🧪 Testing task '{config.name}'...")
+
+        with QueueManager() as queue:
+            item = queue.enqueue(config.name, priority=config.priority, metadata={"test": True})
+            executor = TaskExecutor(queue_manager=queue)
+            results = executor.process_queue()
+            outcome = next((r for r in results if r.task_id == item.id), None)
+
+            if outcome:
+                if output_format == "json":
+                    test_result = {
+                        "test_status": outcome.status,
+                        "duration": outcome.duration,
+                        "error": outcome.error,
+                    }
+                    click.echo(json.dumps(test_result, indent=2))
+                else:
+                    _print_execution_result(outcome)
+            else:
+                if output_format == "text":
+                    click.echo("   Task queued but not executed (another task may be running)")
+
+
 @cli.command()
 @click.argument("task_name")
 @click.option("--priority", type=click.Choice(["normal", "high"]), default="normal")
@@ -357,13 +503,36 @@ def logs(tail: int, task_filter: Optional[str], follow: bool, json_output: bool)
 
 
 @cli.command()
-def list() -> None:  # type: ignore[override]
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option("--filter", "filter_by", type=click.Choice(["all", "enabled", "disabled", "scheduled"]), default="all", help="Filter tasks by status")
+def list(output_format: str, filter_by: str) -> None:  # type: ignore[override]
     """List configured tasks."""
     ensure_tasks_dir()
     configs, errors = validate_all_tasks()
-    if configs:
+
+    # Apply filters
+    filtered_configs = configs
+    if filter_by == "enabled":
+        filtered_configs = [c for c in configs if c.enabled]
+    elif filter_by == "disabled":
+        filtered_configs = [c for c in configs if not c.enabled]
+    elif filter_by == "scheduled":
+        filtered_configs = [c for c in configs if c.enabled and c.schedule]
+
+    # JSON output
+    if output_format == "json":
+        result = {
+            "tasks": [task_to_json(cfg) for cfg in filtered_configs],
+            "count": len(filtered_configs),
+            "errors": [{"path": str(path), "error": error} for path, error in errors]
+        }
+        click.echo(json.dumps(result, indent=2))
+        return
+
+    # Text output
+    if filtered_configs:
         click.echo("Configured tasks:")
-        for cfg in configs:
+        for cfg in filtered_configs:
             status = "enabled" if cfg.enabled else "disabled"
             schedule = cfg.schedule.expression if cfg.schedule else "-"
             if cfg.trigger:
@@ -386,6 +555,522 @@ def list() -> None:  # type: ignore[override]
         click.echo("\nTasks with validation errors:")
         for path, error in errors:
             click.echo(f" • {path}: {error}")
+
+
+@cli.command()
+@click.argument("task_name")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+def inspect(task_name: str, output_format: str) -> None:
+    """Get detailed information about a specific task."""
+    try:
+        config = load_task_by_name(task_name)
+    except ConfigError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if output_format == "json":
+        # Include task metadata from queue metrics if available
+        with QueueManager(auto_lock=False) as queue:
+            status = queue.get_status()
+            metrics = status.get("metrics", {}).get(task_name, {})
+
+        result = {
+            "config": task_to_json(config),
+            "metrics": metrics if metrics else None,
+        }
+        click.echo(json.dumps(result, indent=2))
+        return
+
+    # Text output
+    click.echo(f"Task: {config.name}")
+    click.echo(f"Enabled: {'yes' if config.enabled else 'no'}")
+    click.echo(f"Priority: {config.priority}")
+
+    if config.description:
+        click.echo(f"Description: {config.description}")
+
+    if config.schedule:
+        click.echo(f"\nSchedule:")
+        click.echo(f"  Type: {config.schedule.type}")
+        click.echo(f"  Expression: {config.schedule.expression}")
+        if config.schedule.timezone:
+            click.echo(f"  Timezone: {config.schedule.timezone}")
+        click.echo(f"  Catch-up: {config.schedule.catch_up}")
+
+    if config.trigger:
+        click.echo(f"\nTrigger:")
+        click.echo(f"  Type: {config.trigger.type}")
+        if config.trigger.type == "file_watch":
+            click.echo(f"  Path: {config.trigger.path}")
+            click.echo(f"  Pattern: {config.trigger.pattern}")
+            click.echo(f"  Event: {config.trigger.event}")
+            click.echo(f"  Debounce: {config.trigger.debounce}ms")
+        elif config.trigger.type == "interval":
+            click.echo(f"  Interval: {config.trigger.seconds}s")
+
+    click.echo(f"\nTask Configuration:")
+    click.echo(f"  Timeout: {config.task.timeout}s")
+    click.echo(f"  Permission mode: {config.task.permission_mode}")
+    click.echo(f"  Max retries: {config.task.max_retries}")
+
+    if config.task.allowed_tools:
+        click.echo(f"  Allowed tools: {', '.join(config.task.allowed_tools)}")
+    if config.task.disallowed_tools:
+        click.echo(f"  Disallowed tools: {', '.join(config.task.disallowed_tools)}")
+
+    if config.task.mcp_config:
+        click.echo(f"  MCP config: {config.task.mcp_config}")
+
+    click.echo(f"\nPrompt:")
+    click.echo(f"  {config.task.prompt[:200]}{'...' if len(config.task.prompt) > 200 else ''}")
+
+    # Show metrics if available
+    with QueueManager(auto_lock=False) as queue:
+        status = queue.get_status()
+        metrics = status.get("metrics", {}).get(task_name)
+
+    if metrics:
+        click.echo(f"\nMetrics:")
+        click.echo(f"  Success: {metrics['success']}")
+        click.echo(f"  Failure: {metrics['failure']}")
+        click.echo(f"  Avg duration: {metrics['avg_duration']:.2f}s")
+
+
+@cli.command()
+@click.argument("keyword")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+def search(keyword: str, output_format: str) -> None:
+    """Search tasks by keyword in name, description, or prompt."""
+    ensure_tasks_dir()
+    configs, errors = validate_all_tasks()
+
+    keyword_lower = keyword.lower()
+    matches = []
+
+    for cfg in configs:
+        # Search in name, description, and prompt
+        if (keyword_lower in cfg.name.lower() or
+            (cfg.description and keyword_lower in cfg.description.lower()) or
+            keyword_lower in cfg.task.prompt.lower()):
+            matches.append(cfg)
+
+    if output_format == "json":
+        result = {
+            "query": keyword,
+            "matches": [task_to_json(cfg) for cfg in matches],
+            "count": len(matches),
+        }
+        click.echo(json.dumps(result, indent=2))
+        return
+
+    # Text output
+    if matches:
+        click.echo(f"Found {len(matches)} task(s) matching '{keyword}':")
+        for cfg in matches:
+            status = "enabled" if cfg.enabled else "disabled"
+            click.echo(f" • {cfg.name} [{status}]")
+            if cfg.description:
+                click.echo(f"   {cfg.description}")
+    else:
+        click.echo(f"No tasks found matching '{keyword}'")
+
+    if errors:
+        click.echo(f"\nWarning: {len(errors)} task(s) have validation errors (not searched)")
+
+
+@cli.command()
+@click.argument("task_name")
+@click.option("--enable", "set_enabled", flag_value=True, help="Enable the task")
+@click.option("--disable", "set_enabled", flag_value=False, help="Disable the task")
+@click.option("--priority", type=click.Choice(["normal", "high"]), help="Set task priority")
+@click.option("--schedule", help="Set cron schedule expression")
+@click.option("--prompt", help="Update task prompt")
+@click.option("--add-tool", "add_tools", multiple=True, help="Add allowed tool (can be used multiple times)")
+@click.option("--remove-tool", "remove_tools", multiple=True, help="Remove allowed tool (can be used multiple times)")
+@click.option("--timeout", type=int, help="Set timeout in seconds")
+@click.option("--max-retries", type=int, help="Set max retry attempts")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+def modify(
+    task_name: str,
+    set_enabled: Optional[bool],
+    priority: Optional[str],
+    schedule: Optional[str],
+    prompt: Optional[str],
+    add_tools: tuple[str, ...],
+    remove_tools: tuple[str, ...],
+    timeout: Optional[int],
+    max_retries: Optional[int],
+    output_format: str,
+) -> None:
+    """Modify an existing task configuration.
+
+    Examples:
+        # Enable/disable task
+        clodputer modify my-task --enable
+        clodputer modify my-task --disable
+
+        # Update schedule
+        clodputer modify my-task --schedule "0 9 * * *"
+
+        # Update prompt
+        clodputer modify my-task --prompt "New task prompt"
+
+        # Add tools
+        clodputer modify my-task --add-tool Read --add-tool Write
+
+        # Remove tools
+        clodputer modify my-task --remove-tool mcp__gmail
+
+        # Update multiple settings
+        clodputer modify my-task --priority high --timeout 900
+    """
+    # Load existing config
+    try:
+        config = load_task_by_name(task_name)
+    except ConfigError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    # Track if any changes were made
+    changes = []
+
+    # Apply modifications
+    if set_enabled is not None:
+        config.enabled = set_enabled
+        changes.append(f"enabled={set_enabled}")
+
+    if priority:
+        config.priority = priority  # type: ignore
+        changes.append(f"priority={priority}")
+
+    if schedule:
+        from .config import ScheduleConfig
+        config.schedule = ScheduleConfig(type="cron", expression=schedule)
+        changes.append(f"schedule={schedule}")
+
+    if prompt:
+        config.task.prompt = prompt
+        changes.append("prompt updated")
+
+    if add_tools:
+        for tool in add_tools:
+            if tool not in config.task.allowed_tools:
+                config.task.allowed_tools.append(tool)
+                changes.append(f"added tool {tool}")
+
+    if remove_tools:
+        for tool in remove_tools:
+            if tool in config.task.allowed_tools:
+                config.task.allowed_tools.remove(tool)
+                changes.append(f"removed tool {tool}")
+
+    if timeout is not None:
+        config.task.timeout = timeout
+        changes.append(f"timeout={timeout}s")
+
+    if max_retries is not None:
+        config.task.max_retries = max_retries
+        changes.append(f"max_retries={max_retries}")
+
+    # Check if any changes were made
+    if not changes:
+        raise click.ClickException("No modifications specified. Use --help to see available options.")
+
+    # Save updated config
+    try:
+        import yaml
+        task_path = TASKS_DIR / f"{task_name}.yaml"
+        task_dict = config.model_dump(exclude_none=True, mode='json')
+        yaml_content = yaml.dump(task_dict, default_flow_style=False, sort_keys=False)
+        task_path.write_text(yaml_content, encoding='utf-8')
+    except Exception as exc:
+        raise click.ClickException(f"Failed to save modified config: {exc}") from exc
+
+    # Output result
+    if output_format == "json":
+        result = {
+            "task": task_name,
+            "changes": changes,
+            "config": task_to_json(config),
+        }
+        click.echo(json.dumps(result, indent=2))
+    else:
+        click.echo(f"✅ Modified task '{task_name}'")
+        for change in changes:
+            click.echo(f"   • {change}")
+
+
+@cli.command()
+@click.argument("task_name")
+@click.option("--latest", is_flag=True, help="Show only the latest execution result")
+@click.option("--limit", type=int, default=10, help="Number of results to show")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+def results(task_name: str, latest: bool, limit: int, output_format: str) -> None:
+    """Get execution results for a task."""
+    # Collect results from logs
+    task_results = []
+    for event in iter_events(reverse=True):
+        if event.get("task_name") != task_name:
+            continue
+
+        event_type = event.get("event")
+        if event_type == "task_completed":
+            result = event.get("result", {})
+            task_results.append({
+                "timestamp": event.get("timestamp"),
+                "status": "success",
+                "duration": result.get("duration"),
+                "return_code": result.get("return_code"),
+                "output": result.get("result"),
+            })
+        elif event_type == "task_failed":
+            error = event.get("error", {})
+            task_results.append({
+                "timestamp": event.get("timestamp"),
+                "status": "failure",
+                "error": error.get("error") if isinstance(error, dict) else error,
+                "return_code": error.get("return_code") if isinstance(error, dict) else None,
+            })
+
+        if latest and task_results:
+            break
+        if len(task_results) >= limit:
+            break
+
+    if not task_results:
+        if output_format == "json":
+            click.echo("[]")
+        else:
+            click.echo(f"No execution results found for task '{task_name}'")
+        return
+
+    if output_format == "json":
+        click.echo(json.dumps(task_results, indent=2))
+    else:
+        click.echo(f"Execution results for '{task_name}' ({len(task_results)} shown):\n")
+        for result in task_results:
+            status_symbol = "✅" if result["status"] == "success" else "❌"
+            timestamp = result.get("timestamp", "unknown")
+            click.echo(f"{status_symbol} {timestamp}")
+
+            if result["status"] == "success":
+                duration = result.get("duration")
+                if duration:
+                    click.echo(f"   Duration: {_format_duration(duration)}")
+                if result.get("return_code") is not None:
+                    click.echo(f"   Return code: {result['return_code']}")
+            else:
+                click.echo(f"   Error: {result.get('error', 'unknown')}")
+                if result.get("return_code") is not None:
+                    click.echo(f"   Return code: {result['return_code']}")
+            click.echo()
+
+
+@cli.command(name="health-check")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+def health_check(output_format: str) -> None:
+    """Check health of all tasks based on recent execution results."""
+    # Collect latest result for each task
+    task_health = {}
+    for event in iter_events(reverse=True):
+        task_name = event.get("task_name")
+        if not task_name or task_name in task_health:
+            continue
+
+        event_type = event.get("event")
+        if event_type == "task_completed":
+            task_health[task_name] = {
+                "status": "healthy",
+                "last_run": event.get("timestamp"),
+                "last_result": "success",
+            }
+        elif event_type == "task_failed":
+            error = event.get("error", {})
+            task_health[task_name] = {
+                "status": "unhealthy",
+                "last_run": event.get("timestamp"),
+                "last_result": "failure",
+                "error": error.get("error") if isinstance(error, dict) else error,
+            }
+
+    if not task_health:
+        if output_format == "json":
+            click.echo("{}")
+        else:
+            click.echo("No task execution history found")
+        return
+
+    if output_format == "json":
+        click.echo(json.dumps(task_health, indent=2))
+    else:
+        healthy = [t for t, h in task_health.items() if h["status"] == "healthy"]
+        unhealthy = [t for t, h in task_health.items() if h["status"] == "unhealthy"]
+
+        click.echo(f"Task Health Summary ({len(task_health)} tasks):\n")
+
+        if healthy:
+            click.echo(f"✅ Healthy ({len(healthy)}):")
+            for task in sorted(healthy):
+                click.echo(f"   • {task} - last run: {task_health[task]['last_run']}")
+            click.echo()
+
+        if unhealthy:
+            click.echo(f"❌ Unhealthy ({len(unhealthy)}):")
+            for task in sorted(unhealthy):
+                h = task_health[task]
+                click.echo(f"   • {task} - last run: {h['last_run']}")
+                click.echo(f"     Error: {h.get('error', 'unknown')}")
+            click.echo()
+
+
+@cli.group()
+def state() -> None:
+    """Manage task state persistence."""
+
+
+@state.command("get")
+@click.argument("task_name")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option("--key", help="Get specific key from state")
+def state_get(task_name: str, output_format: str, key: Optional[str]) -> None:
+    """Get state for a task."""
+    try:
+        task_state = load_state(task_name)
+    except StateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not task_state:
+        if output_format == "json":
+            click.echo("{}")
+        else:
+            click.echo(f"No state found for task '{task_name}'")
+        return
+
+    # Get specific key if requested
+    if key:
+        if key not in task_state:
+            raise click.ClickException(f"Key '{key}' not found in state for '{task_name}'")
+        value = task_state[key]
+        if output_format == "json":
+            click.echo(json.dumps({key: value}, indent=2))
+        else:
+            click.echo(f"{key}: {json.dumps(value)}")
+        return
+
+    # Output full state
+    if output_format == "json":
+        click.echo(json.dumps(task_state, indent=2))
+    else:
+        click.echo(f"State for '{task_name}':")
+        for k, v in task_state.items():
+            click.echo(f"  {k}: {json.dumps(v)}")
+
+
+@state.command("set")
+@click.argument("task_name")
+@click.option("--json", "json_input", help="JSON state to set")
+@click.option("--key", help="Set specific key (requires --value)")
+@click.option("--value", help="Value for key (requires --key)")
+@click.option("--merge", is_flag=True, help="Merge with existing state instead of replacing")
+def state_set(
+    task_name: str,
+    json_input: Optional[str],
+    key: Optional[str],
+    value: Optional[str],
+    merge: bool,
+) -> None:
+    """Set state for a task."""
+    # Validate input
+    if json_input and (key or value):
+        raise click.ClickException("Cannot use --json with --key/--value")
+    if key and not value:
+        raise click.ClickException("--key requires --value")
+    if value and not key:
+        raise click.ClickException("--value requires --key")
+    if not json_input and not key:
+        raise click.ClickException("Must provide either --json or --key with --value")
+
+    try:
+        if json_input:
+            # Parse JSON input
+            try:
+                new_state = json.loads(json_input)
+            except json.JSONDecodeError as exc:
+                raise click.ClickException(f"Invalid JSON: {exc}") from exc
+
+            if not isinstance(new_state, dict):
+                raise click.ClickException("State must be a JSON object")
+
+            if merge:
+                # Merge with existing state
+                current_state = load_state(task_name)
+                current_state.update(new_state)
+                save_state(task_name, current_state)
+            else:
+                # Replace state
+                save_state(task_name, new_state)
+        else:
+            # Set specific key
+            # Try to parse value as JSON, fall back to string
+            try:
+                parsed_value = json.loads(value)
+            except json.JSONDecodeError:
+                parsed_value = value
+
+            update_state(task_name, {key: parsed_value})
+
+        click.echo(f"✅ State updated for '{task_name}'")
+
+    except StateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@state.command("delete")
+@click.argument("task_name")
+@click.option("--key", help="Delete specific key instead of entire state")
+def state_delete(task_name: str, key: Optional[str]) -> None:
+    """Delete state for a task."""
+    try:
+        if key:
+            # Delete specific key
+            task_state = load_state(task_name)
+            if key not in task_state:
+                raise click.ClickException(f"Key '{key}' not found in state for '{task_name}'")
+            del task_state[key]
+            save_state(task_name, task_state)
+            click.echo(f"✅ Deleted key '{key}' from state for '{task_name}'")
+        else:
+            # Delete entire state
+            if delete_state(task_name):
+                click.echo(f"✅ Deleted state for '{task_name}'")
+            else:
+                click.echo(f"No state found for '{task_name}'")
+    except StateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@state.command("list")
+@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+def state_list(output_format: str) -> None:
+    """List all task states."""
+    try:
+        states = list_states()
+    except StateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not states:
+        if output_format == "json":
+            click.echo("{}")
+        else:
+            click.echo("No task states found")
+        return
+
+    if output_format == "json":
+        click.echo(json.dumps(states, indent=2))
+    else:
+        click.echo(f"Task states ({len(states)} total):")
+        for task_name in sorted(states.keys()):
+            state = states[task_name]
+            key_count = len(state)
+            click.echo(f" • {task_name}: {key_count} key(s)")
 
 
 @cli.group()

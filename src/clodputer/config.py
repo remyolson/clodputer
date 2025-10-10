@@ -236,6 +236,62 @@ def _format_validation_errors(path: Path, exc: ValidationError) -> str:
     return "\n".join(lines)
 
 
+def create_task_from_json(json_data: Dict[str, Any], tasks_dir: Path = TASKS_DIR) -> tuple[TaskConfig, Path]:
+    """Create a task from JSON data.
+
+    Args:
+        json_data: Dictionary containing task configuration
+        tasks_dir: Directory to save task file
+
+    Returns:
+        Tuple of (TaskConfig, Path to saved file)
+
+    Raises:
+        ConfigError: If validation fails or task already exists
+    """
+    try:
+        # Substitute environment variables
+        substituted = _substitute_env(json_data)
+
+        # Validate and create TaskConfig
+        config = TaskConfig.model_validate(substituted)
+    except ValidationError as exc:
+        raise ConfigError(_format_validation_errors(Path("<json-input>"), exc)) from exc
+    except KeyError as exc:
+        raise ConfigError(f"Missing environment variable for placeholder: {exc}") from exc
+
+    # Ensure tasks directory exists
+    ensure_tasks_dir(tasks_dir)
+
+    # Check if task already exists
+    task_path = tasks_dir / f"{config.name}.yaml"
+    if task_path.exists():
+        raise ConfigError(f"Task '{config.name}' already exists at {task_path}")
+
+    # Write task to YAML file
+    try:
+        # Convert Pydantic model to dict, excluding None values for cleaner YAML
+        task_dict = config.model_dump(exclude_none=True, mode='json')
+        yaml_content = yaml.dump(task_dict, default_flow_style=False, sort_keys=False)
+        task_path.write_text(yaml_content, encoding='utf-8')
+    except OSError as exc:
+        raise ConfigError(f"Failed to write task file {task_path}") from exc
+
+    return config, task_path
+
+
+def task_to_json(config: TaskConfig) -> Dict[str, Any]:
+    """Convert TaskConfig to JSON-serializable dictionary.
+
+    Args:
+        config: TaskConfig instance
+
+    Returns:
+        Dictionary suitable for JSON serialization
+    """
+    return config.model_dump(exclude_none=True, mode='json')
+
+
 __all__ = [
     "ConfigError",
     "TaskConfig",
@@ -248,4 +304,6 @@ __all__ = [
     "validate_all_tasks",
     "list_task_names",
     "ensure_tasks_dir",
+    "create_task_from_json",
+    "task_to_json",
 ]
