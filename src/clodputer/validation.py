@@ -90,6 +90,7 @@ def _check_schedule(config: TaskConfig, result: ValidationResult) -> None:
 
     # Warn about very frequent schedules
     from datetime import datetime, timezone
+
     now = datetime.now(timezone.utc)
     cron = croniter(config.schedule.expression, now)
     next_run = cron.get_next(datetime)
@@ -99,7 +100,7 @@ def _check_schedule(config: TaskConfig, result: ValidationResult) -> None:
         result.add_warning(
             f"Schedule runs very frequently (every {interval_seconds:.0f}s). "
             "Consider if this is intentional.",
-            "schedule.expression"
+            "schedule.expression",
         )
 
 
@@ -124,12 +125,13 @@ def _check_mcp_tools(config: TaskConfig, result: ValidationResult) -> None:
             result.add_warning(
                 "Could not verify MCP tools (claude mcp list failed). "
                 "Ensure MCP servers are configured.",
-                "task.allowed_tools"
+                "task.allowed_tools",
             )
             return
 
         # Parse available MCPs
         import json
+
         try:
             mcp_list = json.loads(proc.stdout)
             available_mcps = set()
@@ -151,19 +153,18 @@ def _check_mcp_tools(config: TaskConfig, result: ValidationResult) -> None:
                         result.add_warning(
                             f"MCP tool '{tool}' may not be available. "
                             f"Available MCP servers: {', '.join(sorted(available_mcps)) or 'none'}",
-                            "task.allowed_tools"
+                            "task.allowed_tools",
                         )
 
         except json.JSONDecodeError:
             result.add_warning(
                 "Could not parse MCP list. Ensure claude mcp is configured correctly.",
-                "task.allowed_tools"
+                "task.allowed_tools",
             )
 
     except (subprocess.TimeoutExpired, FileNotFoundError):
         result.add_info(
-            "Could not verify MCP tools (claude command not available)",
-            "task.allowed_tools"
+            "Could not verify MCP tools (claude command not available)", "task.allowed_tools"
         )
 
 
@@ -176,14 +177,14 @@ def _check_resources(config: TaskConfig, result: ValidationResult) -> None:
         result.add_warning(
             f"Very long timeout configured ({hours:.1f} hours). "
             "Consider if this is intentional.",
-            "task.timeout"
+            "task.timeout",
         )
 
     if config.task.timeout < 60:  # 1 minute
         result.add_warning(
             f"Very short timeout ({config.task.timeout}s). "
             "Task may not have enough time to complete.",
-            "task.timeout"
+            "task.timeout",
         )
 
     # Check retry configuration
@@ -191,7 +192,7 @@ def _check_resources(config: TaskConfig, result: ValidationResult) -> None:
         result.add_warning(
             f"Many retries configured ({config.task.max_retries}). "
             "Consider if this is intentional.",
-            "task.max_retries"
+            "task.max_retries",
         )
 
     # Check if using state but not enabled
@@ -199,7 +200,7 @@ def _check_resources(config: TaskConfig, result: ValidationResult) -> None:
         result.add_info(
             "Prompt mentions 'state' but task has no schedule. "
             "State is most useful for scheduled tasks.",
-            "task.prompt"
+            "task.prompt",
         )
 
 
@@ -209,30 +210,25 @@ def _check_best_practices(config: TaskConfig, result: ValidationResult) -> None:
     # Check prompt length
     if len(config.task.prompt) < 20:
         result.add_warning(
-            "Very short prompt. Consider adding more context for better results.",
-            "task.prompt"
+            "Very short prompt. Consider adding more context for better results.", "task.prompt"
         )
 
     if len(config.task.prompt) > 2000:
         result.add_info(
             f"Long prompt ({len(config.task.prompt)} chars). "
             "Consider breaking into multiple tasks if possible.",
-            "task.prompt"
+            "task.prompt",
         )
 
     # Check if no tools specified
     if not config.task.allowed_tools:
         result.add_warning(
-            "No tools specified. Task will have very limited capabilities.",
-            "task.allowed_tools"
+            "No tools specified. Task will have very limited capabilities.", "task.allowed_tools"
         )
 
     # Check for disabled task with schedule
     if not config.enabled and config.schedule:
-        result.add_info(
-            "Task is disabled but has a schedule configured",
-            "enabled"
-        )
+        result.add_info("Task is disabled but has a schedule configured", "enabled")
 
 
 def _check_dependencies(config: TaskConfig, result: ValidationResult, tasks_dir: Path) -> None:

@@ -121,6 +121,7 @@ class TestSaveExecutionReport:
 
         # Check filename format (YYYY-MM-DD_HH-MM-SS.json)
         import re
+
         pattern = r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(json|md)"
         assert re.match(pattern, json_path.name)
         assert re.match(pattern, md_path.name)
@@ -128,6 +129,7 @@ class TestSaveExecutionReport:
 
     def test_save_report_with_cleanup_details(self, temp_outputs_dir):
         """Test saving report with cleanup details."""
+
         # Create a cleanup object with __dict__ attribute (non-dataclass)
         class MockCleanup:
             def __init__(self):
@@ -204,12 +206,13 @@ class TestGenerateMarkdownReport:
 
     def test_markdown_report_with_cleanup(self):
         """Test generating markdown with cleanup details."""
+
         # Create cleanup with terminated processes
         class MockCleanup:
             def __init__(self):
                 self.terminated_processes = [
                     {"pid": 123, "status": "terminated"},
-                    {"pid": 456, "status": "killed"}
+                    {"pid": 456, "status": "killed"},
                 ]
                 self.zombie_count = 2
 
@@ -245,6 +248,7 @@ class TestLoadLatestReport:
         # Save two reports
         save_execution_report(sample_success_result, temp_outputs_dir)
         import time
+
         time.sleep(1.1)  # Ensure different timestamp
         save_execution_report(sample_success_result, temp_outputs_dir)
 
@@ -282,13 +286,16 @@ class TestLoadLatestReport:
 class TestListReports:
     """Tests for list_reports function."""
 
-    def test_list_reports_multiple(self, sample_success_result, sample_failure_result, temp_outputs_dir):
+    def test_list_reports_multiple(
+        self, sample_success_result, sample_failure_result, temp_outputs_dir
+    ):
         """Test listing multiple reports."""
         # Save success report
         save_execution_report(sample_success_result, temp_outputs_dir)
 
         # Save failure report for same task
         import time
+
         time.sleep(1.1)
         failure_result = sample_failure_result
         failure_result.task_name = "test-task"  # Same task
@@ -308,6 +315,7 @@ class TestListReports:
         for _ in range(3):
             save_execution_report(sample_success_result, temp_outputs_dir)
             import time
+
             time.sleep(1.1)
 
         # List with limit=2

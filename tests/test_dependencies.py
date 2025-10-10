@@ -38,7 +38,7 @@ def create_sample_task(name: str, deps: list[dict] = None, tasks_dir: Path = Non
         "task": {
             "prompt": f"Sample task: {name}",
             "allowed_tools": ["Read"],
-        }
+        },
     }
     if deps:
         task_data["depends_on"] = deps
@@ -50,9 +50,7 @@ def create_sample_task(name: str, deps: list[dict] = None, tasks_dir: Path = Non
 def create_task_report(task_name: str, status: str, outputs_dir: Path, age_seconds: int = 0):
     """Helper to create a task execution report."""
     task_dir = outputs_dir / task_name
-    task_dir.mkdir(parents=True, exist_ok=True
-
-)
+    task_dir.mkdir(parents=True, exist_ok=True)
 
     # Calculate timestamp
     timestamp = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
@@ -107,9 +105,7 @@ class TestValidateDependencies:
         create_sample_task("dep-task", deps=None, tasks_dir=temp_tasks_dir)
 
         task = create_sample_task(
-            "task1",
-            deps=[{"task": "dep-task", "max_age": -1}],
-            tasks_dir=temp_tasks_dir
+            "task1", deps=[{"task": "dep-task", "max_age": -1}], tasks_dir=temp_tasks_dir
         )
 
         errors = validate_dependencies(task, temp_tasks_dir, all_tasks=[task])
@@ -198,7 +194,9 @@ class TestGetDependencyOrder:
         """Test ordering with multiple dependencies."""
         task1 = create_sample_task("task1", deps=None, tasks_dir=temp_tasks_dir)
         task2 = create_sample_task("task2", deps=None, tasks_dir=temp_tasks_dir)
-        task3 = create_sample_task("task3", deps=[{"task": "task1"}, {"task": "task2"}], tasks_dir=temp_tasks_dir)
+        task3 = create_sample_task(
+            "task3", deps=[{"task": "task1"}, {"task": "task2"}], tasks_dir=temp_tasks_dir
+        )
 
         # task1 and task2 should come before task3
         ordered = get_dependency_order([task3, task1, task2])
@@ -228,10 +226,7 @@ class TestCheckDependencySatisfied:
     def test_no_report(self, temp_outputs_dir):
         """Test check when dependency has never run."""
         satisfied, reason = check_dependency_satisfied(
-            "nonexistent",
-            "success",
-            None,
-            temp_outputs_dir
+            "nonexistent", "success", None, temp_outputs_dir
         )
 
         assert not satisfied
@@ -242,10 +237,7 @@ class TestCheckDependencySatisfied:
         create_task_report("dep-task", "success", temp_outputs_dir)
 
         satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "success",
-            None,
-            temp_outputs_dir
+            "dep-task", "success", None, temp_outputs_dir
         )
 
         assert satisfied
@@ -256,10 +248,7 @@ class TestCheckDependencySatisfied:
         create_task_report("dep-task", "failure", temp_outputs_dir)
 
         satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "success",
-            None,
-            temp_outputs_dir
+            "dep-task", "success", None, temp_outputs_dir
         )
 
         assert not satisfied
@@ -270,10 +259,7 @@ class TestCheckDependencySatisfied:
         create_task_report("dep-task", "success", temp_outputs_dir)
 
         satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "complete",
-            None,
-            temp_outputs_dir
+            "dep-task", "complete", None, temp_outputs_dir
         )
 
         assert satisfied
@@ -284,10 +270,7 @@ class TestCheckDependencySatisfied:
         create_task_report("dep-task", "failure", temp_outputs_dir)
 
         satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "complete",
-            None,
-            temp_outputs_dir
+            "dep-task", "complete", None, temp_outputs_dir
         )
 
         assert satisfied
@@ -297,12 +280,7 @@ class TestCheckDependencySatisfied:
         """Test always condition accepts any status."""
         create_task_report("dep-task", "failure", temp_outputs_dir)
 
-        satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "always",
-            None,
-            temp_outputs_dir
-        )
+        satisfied, reason = check_dependency_satisfied("dep-task", "always", None, temp_outputs_dir)
 
         assert satisfied
         assert reason is None
@@ -313,10 +291,7 @@ class TestCheckDependencySatisfied:
         create_task_report("dep-task", "success", temp_outputs_dir, age_seconds=30)
 
         satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "success",
-            max_age=60,
-            outputs_dir=temp_outputs_dir
+            "dep-task", "success", max_age=60, outputs_dir=temp_outputs_dir
         )
 
         assert satisfied
@@ -328,10 +303,7 @@ class TestCheckDependencySatisfied:
         create_task_report("dep-task", "success", temp_outputs_dir, age_seconds=120)
 
         satisfied, reason = check_dependency_satisfied(
-            "dep-task",
-            "success",
-            max_age=60,
-            outputs_dir=temp_outputs_dir
+            "dep-task", "success", max_age=60, outputs_dir=temp_outputs_dir
         )
 
         assert not satisfied
@@ -346,7 +318,9 @@ class TestDependencyIntegration:
         # Create tasks: task1 <- task2 <- task3
         task1 = create_sample_task("task1", deps=None, tasks_dir=temp_tasks_dir)
         task2 = create_sample_task("task2", deps=[{"task": "task1"}], tasks_dir=temp_tasks_dir)
-        task3 = create_sample_task("task3", deps=[{"task": "task2", "condition": "success"}], tasks_dir=temp_tasks_dir)
+        task3 = create_sample_task(
+            "task3", deps=[{"task": "task2", "condition": "success"}], tasks_dir=temp_tasks_dir
+        )
 
         # Validate all tasks
         for task in [task1, task2, task3]:

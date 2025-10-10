@@ -258,10 +258,7 @@ class TaskExecutor:
 
         for dep in config.depends_on:
             satisfied, reason = check_dependency_satisfied(
-                dep.task,
-                dep.condition,
-                dep.max_age,
-                outputs_dir
+                dep.task, dep.condition, dep.max_age, outputs_dir
             )
             if not satisfied:
                 return False, reason
@@ -330,7 +327,7 @@ class TaskExecutor:
                     queue_item.id,
                     config.name,
                     {"error": "dependency_failed", "details": reason},
-                    {"stage": "dependency_check"}
+                    {"stage": "dependency_check"},
                 )
 
                 # Save execution report

@@ -30,7 +30,7 @@ def test_validate_valid_task(temp_tasks_dir):
             "prompt": "This is a test task with a reasonable prompt",
             "allowed_tools": ["Read", "Write"],
             "timeout": 300,
-        }
+        },
     }
 
     create_task_from_json(task_data, temp_tasks_dir)
@@ -53,7 +53,7 @@ def test_validate_invalid_cron(temp_tasks_dir):
         "task": {
             "prompt": "Test task",
             "allowed_tools": ["Read"],
-        }
+        },
     }
 
     create_task_from_json(task_data, temp_tasks_dir)
@@ -79,7 +79,7 @@ def test_validate_warnings(temp_tasks_dir):
             "prompt": "Short",  # Too short - should warn
             "timeout": 7200,  # 2 hours - should warn
             "max_retries": 10,  # Many retries - should warn
-        }
+        },
     }
 
     create_task_from_json(task_data, temp_tasks_dir)
@@ -100,7 +100,7 @@ def test_validate_no_schedule(temp_tasks_dir):
         "task": {
             "prompt": "Manual task with reasonable prompt",
             "allowed_tools": ["Read"],
-        }
+        },
     }
 
     create_task_from_json(task_data, temp_tasks_dir)
@@ -120,7 +120,7 @@ def test_validate_no_tools(temp_tasks_dir):
         "task": {
             "prompt": "Task with no tools specified",
             "allowed_tools": [],
-        }
+        },
     }
 
     create_task_from_json(task_data, temp_tasks_dir)
@@ -140,7 +140,7 @@ def test_validate_with_dependencies(temp_tasks_dir):
         "task": {
             "prompt": "Dependency task",
             "allowed_tools": ["Read"],
-        }
+        },
     }
     create_task_from_json(dep_task_data, temp_tasks_dir)
 
@@ -151,13 +151,7 @@ def test_validate_with_dependencies(temp_tasks_dir):
             "prompt": "Main task with dependency",
             "allowed_tools": ["Read"],
         },
-        "depends_on": [
-            {
-                "task": "dep-task",
-                "condition": "success",
-                "max_age": 3600
-            }
-        ]
+        "depends_on": [{"task": "dep-task", "condition": "success", "max_age": 3600}],
     }
     create_task_from_json(task_data, temp_tasks_dir)
 
@@ -175,9 +169,7 @@ def test_validate_with_missing_dependency(temp_tasks_dir):
             "prompt": "Task with missing dependency",
             "allowed_tools": ["Read"],
         },
-        "depends_on": [
-            {"task": "nonexistent"}
-        ]
+        "depends_on": [{"task": "nonexistent"}],
     }
     create_task_from_json(task_data, temp_tasks_dir)
 

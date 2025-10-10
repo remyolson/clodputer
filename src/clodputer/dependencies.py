@@ -20,13 +20,12 @@ from .config import ConfigError, TaskConfig, load_task_by_name, TASKS_DIR
 
 class DependencyError(Exception):
     """Raised when dependency validation fails."""
+
     pass
 
 
 def validate_dependencies(
-    task: TaskConfig,
-    tasks_dir: Path = TASKS_DIR,
-    all_tasks: Optional[List[TaskConfig]] = None
+    task: TaskConfig, tasks_dir: Path = TASKS_DIR, all_tasks: Optional[List[TaskConfig]] = None
 ) -> List[str]:
     """Validate task dependencies.
 
@@ -76,6 +75,7 @@ def validate_dependencies(
     if all_tasks is None:
         # Load all tasks for cycle detection
         from .config import load_all_tasks
+
         try:
             all_tasks = load_all_tasks(tasks_dir)
         except ConfigError as exc:
@@ -89,10 +89,7 @@ def validate_dependencies(
     return errors
 
 
-def detect_dependency_cycles(
-    task: TaskConfig,
-    all_tasks: List[TaskConfig]
-) -> List[str]:
+def detect_dependency_cycles(task: TaskConfig, all_tasks: List[TaskConfig]) -> List[str]:
     """Detect circular dependencies starting from a task.
 
     Args:
@@ -199,19 +196,14 @@ def get_dependency_order(tasks: List[TaskConfig]) -> List[TaskConfig]:
     if len(sorted_order) != len(tasks):
         # There's a cycle
         remaining = [t.name for t in tasks if t.name not in sorted_order]
-        raise DependencyError(
-            f"Circular dependency detected among tasks: {', '.join(remaining)}"
-        )
+        raise DependencyError(f"Circular dependency detected among tasks: {', '.join(remaining)}")
 
     # Return tasks in sorted order
     return [task_map[name] for name in sorted_order]
 
 
 def check_dependency_satisfied(
-    dependency_task_name: str,
-    condition: str,
-    max_age: Optional[int],
-    outputs_dir: Path
+    dependency_task_name: str, condition: str, max_age: Optional[int], outputs_dir: Path
 ) -> Tuple[bool, Optional[str]]:
     """Check if a dependency condition is satisfied.
 
@@ -240,7 +232,10 @@ def check_dependency_satisfied(
             return False, f"Dependency '{dependency_task_name}' did not succeed (status: {status})"
     elif condition == "complete":
         if status not in ("success", "failure", "timeout"):
-            return False, f"Dependency '{dependency_task_name}' has not completed (status: {status})"
+            return (
+                False,
+                f"Dependency '{dependency_task_name}' has not completed (status: {status})",
+            )
     # condition == "always" - no status check needed
 
     # Check max_age if specified
@@ -252,7 +247,7 @@ def check_dependency_satisfied(
 
         try:
             # Parse ISO format timestamp
-            report_time = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            report_time = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             if report_time.tzinfo is None:
                 report_time = report_time.replace(tzinfo=timezone.utc)
 
@@ -260,7 +255,10 @@ def check_dependency_satisfied(
             age_seconds = (now - report_time).total_seconds()
 
             if age_seconds > max_age:
-                return False, f"Dependency '{dependency_task_name}' is too old ({age_seconds:.0f}s > {max_age}s)"
+                return (
+                    False,
+                    f"Dependency '{dependency_task_name}' is too old ({age_seconds:.0f}s > {max_age}s)",
+                )
         except (ValueError, AttributeError) as exc:
             return False, f"Dependency '{dependency_task_name}' has invalid timestamp: {exc}"
 

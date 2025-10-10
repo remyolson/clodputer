@@ -62,7 +62,9 @@ def load_state(task_name: str, state_dir: Path = STATE_DIR) -> Dict[str, Any]:
         state = json.loads(content)
 
         if not isinstance(state, dict):
-            raise StateError(f"State for '{task_name}' must be a JSON object, got {type(state).__name__}")
+            raise StateError(
+                f"State for '{task_name}' must be a JSON object, got {type(state).__name__}"
+            )
 
         return state
 

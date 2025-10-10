@@ -386,9 +386,7 @@ class TestDetectMissedTasks:
         )
 
         # Use a fixed "now" time (10 PM same day) to avoid time-dependent failures
-        now = datetime.now(timezone.utc).replace(
-            hour=22, minute=0, second=0, microsecond=0
-        )
+        now = datetime.now(timezone.utc).replace(hour=22, minute=0, second=0, microsecond=0)
         missed = detect_missed_tasks([task], now=now)
 
         # run_all mode should return all missed runs
@@ -440,9 +438,7 @@ class TestDetectMissedTasks:
         update_task_state("task3", last_success=yesterday.strftime("%Y-%m-%dT%H:%M:%SZ"))
 
         # Use a fixed "now" time (8 PM same day) to avoid time-dependent failures
-        now = datetime.now(timezone.utc).replace(
-            hour=20, minute=0, second=0, microsecond=0
-        )
+        now = datetime.now(timezone.utc).replace(hour=20, minute=0, second=0, microsecond=0)
         missed = detect_missed_tasks([task1, task2, task3], now=now)
 
         # Should detect 1 from task1 and 2 from task2, none from task3

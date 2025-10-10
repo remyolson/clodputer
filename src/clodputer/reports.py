@@ -123,61 +123,73 @@ def generate_markdown_report(result: ExecutionResult, timestamp: str) -> str:
     ]
 
     # Add execution details
-    lines.extend([
-        "## Execution Details",
-        "",
-        f"- **Return Code:** {result.return_code}",
-        f"- **JSON Parse:** {'✅ Success' if result.output_parse_error is None else '❌ Failed'}",
-    ])
+    lines.extend(
+        [
+            "## Execution Details",
+            "",
+            f"- **Return Code:** {result.return_code}",
+            f"- **JSON Parse:** {'✅ Success' if result.output_parse_error is None else '❌ Failed'}",
+        ]
+    )
 
     if result.error:
-        lines.extend([
-            f"- **Error:** {result.error}",
-        ])
+        lines.extend(
+            [
+                f"- **Error:** {result.error}",
+            ]
+        )
 
     lines.extend(["", "---", ""])
 
     # Add output section
     if result.output_json is not None:
-        lines.extend([
-            "## Output (Parsed JSON)",
-            "",
-            "```json",
-            json.dumps(result.output_json, indent=2, ensure_ascii=False),
-            "```",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Output (Parsed JSON)",
+                "",
+                "```json",
+                json.dumps(result.output_json, indent=2, ensure_ascii=False),
+                "```",
+                "",
+            ]
+        )
 
     if result.stdout:
-        lines.extend([
-            "## Standard Output",
-            "",
-            "```",
-            result.stdout.strip(),
-            "```",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Standard Output",
+                "",
+                "```",
+                result.stdout.strip(),
+                "```",
+                "",
+            ]
+        )
 
     if result.stderr:
-        lines.extend([
-            "## Standard Error",
-            "",
-            "```",
-            result.stderr.strip(),
-            "```",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Standard Error",
+                "",
+                "```",
+                result.stderr.strip(),
+                "```",
+                "",
+            ]
+        )
 
     # Add parse error if present
     if result.output_parse_error:
-        lines.extend([
-            "## JSON Parse Error",
-            "",
-            "```",
-            result.output_parse_error,
-            "```",
-            "",
-        ])
+        lines.extend(
+            [
+                "## JSON Parse Error",
+                "",
+                "```",
+                result.output_parse_error,
+                "```",
+                "",
+            ]
+        )
 
     # Add cleanup information
     if result.cleanup:
@@ -186,18 +198,22 @@ def generate_markdown_report(result: ExecutionResult, timestamp: str) -> str:
         zombie_count = getattr(cleanup, "zombie_count", 0)
 
         if terminated or zombie_count > 0:
-            lines.extend([
-                "## Cleanup Report",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Cleanup Report",
+                    "",
+                ]
+            )
 
             if terminated:
-                lines.extend([
-                    f"**Terminated Processes:** {len(terminated)}",
-                    "",
-                    "| PID | Status |",
-                    "|-----|--------|",
-                ])
+                lines.extend(
+                    [
+                        f"**Terminated Processes:** {len(terminated)}",
+                        "",
+                        "| PID | Status |",
+                        "|-----|--------|",
+                    ]
+                )
                 for proc in terminated:
                     pid = proc.get("pid", "?")
                     status = proc.get("status", "unknown")
@@ -205,10 +221,12 @@ def generate_markdown_report(result: ExecutionResult, timestamp: str) -> str:
                 lines.append("")
 
             if zombie_count > 0:
-                lines.extend([
-                    f"**Zombie Processes Found:** {zombie_count}",
-                    "",
-                ])
+                lines.extend(
+                    [
+                        f"**Zombie Processes Found:** {zombie_count}",
+                        "",
+                    ]
+                )
 
     lines.append("---")
     lines.append("")
@@ -243,7 +261,9 @@ def load_latest_report(task_name: str, outputs_dir: Path = OUTPUTS_DIR) -> Optio
         return None
 
 
-def list_reports(task_name: str, outputs_dir: Path = OUTPUTS_DIR, limit: int = 10) -> List[Dict[str, Any]]:
+def list_reports(
+    task_name: str, outputs_dir: Path = OUTPUTS_DIR, limit: int = 10
+) -> List[Dict[str, Any]]:
     """List recent execution reports for a task.
 
     Args:

@@ -273,9 +273,17 @@ def init(
 @click.option("--name", help="Quick-create: task name (requires --prompt)")
 @click.option("--prompt", help="Quick-create: task prompt (requires --name)")
 @click.option("--schedule", help="Quick-create: cron schedule expression (optional)")
-@click.option("--priority", type=click.Choice(["normal", "high"]), default="normal", help="Task priority")
+@click.option(
+    "--priority", type=click.Choice(["normal", "high"]), default="normal", help="Task priority"
+)
 @click.option("--tools", help="Comma-separated list of allowed tools (optional)")
-@click.option("--format", "output_format", type=click.Choice(["json", "text"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "text"]),
+    default="text",
+    help="Output format",
+)
 def create_task(
     json_input: Optional[str],
     stdin: bool,
@@ -306,13 +314,9 @@ def create_task(
     # Validate input sources
     input_sources = sum(1 for x in [json_input, stdin, (name and prompt)] if x)
     if input_sources == 0:
-        raise click.ClickException(
-            "Must provide one of: --json, --stdin, or --name with --prompt"
-        )
+        raise click.ClickException("Must provide one of: --json, --stdin, or --name with --prompt")
     if input_sources > 1:
-        raise click.ClickException(
-            "Cannot combine --json, --stdin, and quick-create options"
-        )
+        raise click.ClickException("Cannot combine --json, --stdin, and quick-create options")
 
     # Build task data
     task_data: dict = {}
@@ -334,7 +338,7 @@ def create_task(
             "priority": priority,
             "task": {
                 "prompt": prompt,
-            }
+            },
         }
         if schedule:
             task_data["schedule"] = {
@@ -505,8 +509,20 @@ def logs(tail: int, task_filter: Optional[str], follow: bool, json_output: bool)
 
 
 @cli.command()
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
-@click.option("--filter", "filter_by", type=click.Choice(["all", "enabled", "disabled", "scheduled"]), default="all", help="Filter tasks by status")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
+@click.option(
+    "--filter",
+    "filter_by",
+    type=click.Choice(["all", "enabled", "disabled", "scheduled"]),
+    default="all",
+    help="Filter tasks by status",
+)
 def list(output_format: str, filter_by: str) -> None:  # type: ignore[override]
     """List configured tasks."""
     ensure_tasks_dir()
@@ -526,7 +542,7 @@ def list(output_format: str, filter_by: str) -> None:  # type: ignore[override]
         result = {
             "tasks": [task_to_json(cfg) for cfg in filtered_configs],
             "count": len(filtered_configs),
-            "errors": [{"path": str(path), "error": error} for path, error in errors]
+            "errors": [{"path": str(path), "error": error} for path, error in errors],
         }
         click.echo(json.dumps(result, indent=2))
         return
@@ -561,7 +577,13 @@ def list(output_format: str, filter_by: str) -> None:  # type: ignore[override]
 
 @cli.command()
 @click.argument("task_name")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 def inspect(task_name: str, output_format: str) -> None:
     """Get detailed information about a specific task."""
     try:
@@ -639,7 +661,13 @@ def inspect(task_name: str, output_format: str) -> None:
 
 @cli.command()
 @click.argument("keyword")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 def search(keyword: str, output_format: str) -> None:
     """Search tasks by keyword in name, description, or prompt."""
     ensure_tasks_dir()
@@ -650,9 +678,11 @@ def search(keyword: str, output_format: str) -> None:
 
     for cfg in configs:
         # Search in name, description, and prompt
-        if (keyword_lower in cfg.name.lower() or
-            (cfg.description and keyword_lower in cfg.description.lower()) or
-            keyword_lower in cfg.task.prompt.lower()):
+        if (
+            keyword_lower in cfg.name.lower()
+            or (cfg.description and keyword_lower in cfg.description.lower())
+            or keyword_lower in cfg.task.prompt.lower()
+        ):
             matches.append(cfg)
 
     if output_format == "json":
@@ -686,11 +716,24 @@ def search(keyword: str, output_format: str) -> None:
 @click.option("--priority", type=click.Choice(["normal", "high"]), help="Set task priority")
 @click.option("--schedule", help="Set cron schedule expression")
 @click.option("--prompt", help="Update task prompt")
-@click.option("--add-tool", "add_tools", multiple=True, help="Add allowed tool (can be used multiple times)")
-@click.option("--remove-tool", "remove_tools", multiple=True, help="Remove allowed tool (can be used multiple times)")
+@click.option(
+    "--add-tool", "add_tools", multiple=True, help="Add allowed tool (can be used multiple times)"
+)
+@click.option(
+    "--remove-tool",
+    "remove_tools",
+    multiple=True,
+    help="Remove allowed tool (can be used multiple times)",
+)
 @click.option("--timeout", type=int, help="Set timeout in seconds")
 @click.option("--max-retries", type=int, help="Set max retry attempts")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 def modify(
     task_name: str,
     set_enabled: Optional[bool],
@@ -745,6 +788,7 @@ def modify(
 
     if schedule:
         from .config import ScheduleConfig
+
         config.schedule = ScheduleConfig(type="cron", expression=schedule)
         changes.append(f"schedule={schedule}")
 
@@ -774,15 +818,18 @@ def modify(
 
     # Check if any changes were made
     if not changes:
-        raise click.ClickException("No modifications specified. Use --help to see available options.")
+        raise click.ClickException(
+            "No modifications specified. Use --help to see available options."
+        )
 
     # Save updated config
     try:
         import yaml
+
         task_path = TASKS_DIR / f"{task_name}.yaml"
-        task_dict = config.model_dump(exclude_none=True, mode='json')
+        task_dict = config.model_dump(exclude_none=True, mode="json")
         yaml_content = yaml.dump(task_dict, default_flow_style=False, sort_keys=False)
-        task_path.write_text(yaml_content, encoding='utf-8')
+        task_path.write_text(yaml_content, encoding="utf-8")
     except Exception as exc:
         raise click.ClickException(f"Failed to save modified config: {exc}") from exc
 
@@ -802,7 +849,13 @@ def modify(
 
 @cli.command()
 @click.argument("task_name")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 @click.option("--no-mcp-check", is_flag=True, help="Skip MCP tool availability check")
 def validate(task_name: str, output_format: str, no_mcp_check: bool) -> None:
     """Validate a task configuration without executing it (dry-run).
@@ -832,9 +885,18 @@ def validate(task_name: str, output_format: str, no_mcp_check: bool) -> None:
         output = {
             "task": task_name,
             "valid": result.is_valid,
-            "errors": [{"level": i.level, "message": i.message, "field": i.field} for i in result.get_errors()],
-            "warnings": [{"level": i.level, "message": i.message, "field": i.field} for i in result.get_warnings()],
-            "info": [{"level": i.level, "message": i.message, "field": i.field} for i in result.get_infos()],
+            "errors": [
+                {"level": i.level, "message": i.message, "field": i.field}
+                for i in result.get_errors()
+            ],
+            "warnings": [
+                {"level": i.level, "message": i.message, "field": i.field}
+                for i in result.get_warnings()
+            ],
+            "info": [
+                {"level": i.level, "message": i.message, "field": i.field}
+                for i in result.get_infos()
+            ],
         }
         click.echo(json.dumps(output, indent=2))
         return
@@ -863,7 +925,13 @@ def validate(task_name: str, output_format: str, no_mcp_check: bool) -> None:
 
 @cli.command()
 @click.argument("task_name")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 @click.option("--tree", is_flag=True, help="Show full dependency tree")
 @click.option("--reverse", is_flag=True, help="Show tasks that depend on this task")
 def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
@@ -895,10 +963,14 @@ def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
                 "dependent_tasks": [
                     {
                         "name": c.name,
-                        "dependencies": [{"task": d.task, "condition": d.condition, "max_age": d.max_age} for d in c.depends_on if d.task == task_name]
+                        "dependencies": [
+                            {"task": d.task, "condition": d.condition, "max_age": d.max_age}
+                            for d in c.depends_on
+                            if d.task == task_name
+                        ],
                     }
                     for c in dependent_tasks
-                ]
+                ],
             }
             click.echo(json.dumps(result, indent=2))
         else:
@@ -919,6 +991,7 @@ def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
     if tree:
         # Show full dependency tree
         from .dependencies import get_dependency_order
+
         configs, errors = validate_all_tasks()
 
         # Get all tasks involved in the dependency chain
@@ -947,9 +1020,13 @@ def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
                     "task": task_name,
                     "execution_order": [t.name for t in ordered],
                     "dependencies": {
-                        t.name: [{"task": d.task, "condition": d.condition, "max_age": d.max_age} for d in t.depends_on]
-                        for t in ordered if t.depends_on
-                    }
+                        t.name: [
+                            {"task": d.task, "condition": d.condition, "max_age": d.max_age}
+                            for d in t.depends_on
+                        ]
+                        for t in ordered
+                        if t.depends_on
+                    },
                 }
                 click.echo(json.dumps(result, indent=2))
             else:
@@ -972,13 +1049,9 @@ def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
         result = {
             "task": task_name,
             "dependencies": [
-                {
-                    "task": dep.task,
-                    "condition": dep.condition,
-                    "max_age": dep.max_age
-                }
+                {"task": dep.task, "condition": dep.condition, "max_age": dep.max_age}
                 for dep in config.depends_on
-            ]
+            ],
         }
         click.echo(json.dumps(result, indent=2))
     else:
@@ -997,7 +1070,13 @@ def deps(task_name: str, output_format: str, tree: bool, reverse: bool) -> None:
 @click.argument("task_name")
 @click.option("--latest", is_flag=True, help="Show only the latest execution result")
 @click.option("--limit", type=int, default=10, help="Number of results to show")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 @click.option("--compare", is_flag=True, help="Compare latest run with previous run")
 @click.option("--markdown", is_flag=True, help="Show markdown report for latest run")
 @click.option("--detailed", is_flag=True, help="Show detailed debugging info from reports")
@@ -1033,7 +1112,9 @@ def results(
     if compare:
         reports = list_reports(task_name, limit=2)
         if len(reports) < 2:
-            click.echo(f"Need at least 2 execution reports to compare (found {len(reports)})", err=True)
+            click.echo(
+                f"Need at least 2 execution reports to compare (found {len(reports)})", err=True
+            )
             return
 
         comparison = compare_reports(reports[0], reports[1])
@@ -1073,7 +1154,9 @@ def results(
             if output_format == "json":
                 click.echo(json.dumps(reports, indent=2))
             else:
-                click.echo(f"Detailed execution reports for '{task_name}' ({len(reports)} shown):\n")
+                click.echo(
+                    f"Detailed execution reports for '{task_name}' ({len(reports)} shown):\n"
+                )
                 for report in reports:
                     status_symbol = {
                         "success": "✅",
@@ -1094,11 +1177,19 @@ def results(
                         click.echo(f"   Parse error: {report['output_parse_error']}")
 
                     if report.get("stdout"):
-                        preview = report["stdout"][:100] + "..." if len(report["stdout"]) > 100 else report["stdout"]
+                        preview = (
+                            report["stdout"][:100] + "..."
+                            if len(report["stdout"]) > 100
+                            else report["stdout"]
+                        )
                         click.echo(f"   Stdout: {preview}")
 
                     if report.get("stderr"):
-                        preview = report["stderr"][:100] + "..." if len(report["stderr"]) > 100 else report["stderr"]
+                        preview = (
+                            report["stderr"][:100] + "..."
+                            if len(report["stderr"]) > 100
+                            else report["stderr"]
+                        )
                         click.echo(f"   Stderr: {preview}")
 
                     click.echo(f"   Report: {report.get('report_file')}")
@@ -1114,21 +1205,25 @@ def results(
         event_type = event.get("event")
         if event_type == "task_completed":
             result = event.get("result", {})
-            task_results.append({
-                "timestamp": event.get("timestamp"),
-                "status": "success",
-                "duration": result.get("duration"),
-                "return_code": result.get("return_code"),
-                "output": result.get("result"),
-            })
+            task_results.append(
+                {
+                    "timestamp": event.get("timestamp"),
+                    "status": "success",
+                    "duration": result.get("duration"),
+                    "return_code": result.get("return_code"),
+                    "output": result.get("result"),
+                }
+            )
         elif event_type == "task_failed":
             error = event.get("error", {})
-            task_results.append({
-                "timestamp": event.get("timestamp"),
-                "status": "failure",
-                "error": error.get("error") if isinstance(error, dict) else error,
-                "return_code": error.get("return_code") if isinstance(error, dict) else None,
-            })
+            task_results.append(
+                {
+                    "timestamp": event.get("timestamp"),
+                    "status": "failure",
+                    "error": error.get("error") if isinstance(error, dict) else error,
+                    "return_code": error.get("return_code") if isinstance(error, dict) else None,
+                }
+            )
 
         if latest and task_results:
             break
@@ -1165,7 +1260,13 @@ def results(
 
 
 @cli.command(name="health-check")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 def health_check(output_format: str) -> None:
     """Check health of all tasks based on recent execution results."""
     # Collect latest result for each task
@@ -1228,7 +1329,13 @@ def state() -> None:
 
 @state.command("get")
 @click.argument("task_name")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 @click.option("--key", help="Get specific key from state")
 def state_get(task_name: str, output_format: str, key: Optional[str]) -> None:
     """Get state for a task."""
@@ -1348,7 +1455,13 @@ def state_delete(task_name: str, key: Optional[str]) -> None:
 
 
 @state.command("list")
-@click.option("--format", "output_format", type=click.Choice(["text", "json"]), default="text", help="Output format")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format",
+)
 def state_list(output_format: str) -> None:
     """List all task states."""
     try:
@@ -1467,7 +1580,8 @@ def queue(clear: bool) -> None:
                     # Try to get max_retries from config
                     try:
                         from .config import load_task_by_name
-                        config = load_task_by_name(item['name'])
+
+                        config = load_task_by_name(item["name"])
                         max_retries = config.task.max_retries
                         extras.append(f"retry {attempt}/{max_retries}")
                     except Exception:
@@ -1475,7 +1589,7 @@ def queue(clear: bool) -> None:
 
                 if item.get("not_before"):
                     # Calculate time until retry
-                    not_before_dt = _parse_iso(item['not_before'])
+                    not_before_dt = _parse_iso(item["not_before"])
                     if not_before_dt:
                         now = datetime.now(timezone.utc)
                         if not_before_dt > now:

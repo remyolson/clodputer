@@ -96,14 +96,13 @@ class DependencyConfig(BaseModel):
     - complete: Run if dependency completed (success or failure)
     - always: Always run, wait for dependency to finish
     """
+
     task: str = Field(description="Name of the task to depend on")
     condition: Literal["success", "complete", "always"] = Field(
-        default="success",
-        description="Condition for running this task"
+        default="success", description="Condition for running this task"
     )
     max_age: Optional[int] = Field(
-        default=None,
-        description="Maximum age of dependency result in seconds (optional)"
+        default=None, description="Maximum age of dependency result in seconds (optional)"
     )
 
 
@@ -159,8 +158,7 @@ class TaskConfig(BaseModel):
     trigger: Optional[TriggerConfig] = None
     priority: Literal["normal", "high"] = "normal"
     depends_on: List[DependencyConfig] = Field(
-        default_factory=list,
-        description="Tasks this task depends on"
+        default_factory=list, description="Tasks this task depends on"
     )
     task: TaskSpec
     on_success: List[TaskActions] = Field(default_factory=list)
@@ -260,7 +258,9 @@ def _format_validation_errors(path: Path, exc: ValidationError) -> str:
     return "\n".join(lines)
 
 
-def create_task_from_json(json_data: Dict[str, Any], tasks_dir: Path = TASKS_DIR) -> tuple[TaskConfig, Path]:
+def create_task_from_json(
+    json_data: Dict[str, Any], tasks_dir: Path = TASKS_DIR
+) -> tuple[TaskConfig, Path]:
     """Create a task from JSON data.
 
     Args:
@@ -295,9 +295,9 @@ def create_task_from_json(json_data: Dict[str, Any], tasks_dir: Path = TASKS_DIR
     # Write task to YAML file
     try:
         # Convert Pydantic model to dict, excluding None values for cleaner YAML
-        task_dict = config.model_dump(exclude_none=True, mode='json')
+        task_dict = config.model_dump(exclude_none=True, mode="json")
         yaml_content = yaml.dump(task_dict, default_flow_style=False, sort_keys=False)
-        task_path.write_text(yaml_content, encoding='utf-8')
+        task_path.write_text(yaml_content, encoding="utf-8")
     except OSError as exc:
         raise ConfigError(f"Failed to write task file {task_path}") from exc
 
@@ -313,7 +313,7 @@ def task_to_json(config: TaskConfig) -> Dict[str, Any]:
     Returns:
         Dictionary suitable for JSON serialization
     """
-    return config.model_dump(exclude_none=True, mode='json')
+    return config.model_dump(exclude_none=True, mode="json")
 
 
 __all__ = [

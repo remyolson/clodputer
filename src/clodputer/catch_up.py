@@ -32,7 +32,9 @@ class MissedTask:
         self.catch_up_mode = catch_up_mode
 
 
-def detect_missed_tasks(tasks: List[TaskConfig], now: Optional[datetime] = None) -> List[MissedTask]:
+def detect_missed_tasks(
+    tasks: List[TaskConfig], now: Optional[datetime] = None
+) -> List[MissedTask]:
     """Detect tasks that missed their scheduled run times.
 
     Args:
